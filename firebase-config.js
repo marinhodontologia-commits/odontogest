@@ -22,11 +22,11 @@ export const FIREBASE_CONFIG = {
 // orientações) e preenchem os campos {{cidade}}, {{dentista}} e {{cro}} dos modelos.
 export const CLINICA = {
   nome: "Marinho Odontologia & Estética",
-  endereco: "Rua Exemplo, 123 — Centro",
-  telefone: "(61) 90000-0000",
-  cidade: "Brasília/DF",
-  dentista: "Dra. Nome Sobrenome",
-  cro: "DF-00000"
+  endereco: "",
+  telefone: "(61) 99808-0308",
+  cidade: "",
+  dentista: "",
+  cro: ""
 };
 
 // Proprietária: acesso total e permanente (não pode ser removida pela tela de Acessos).
