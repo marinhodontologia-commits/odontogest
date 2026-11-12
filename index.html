@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OdontoGest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-modo="recepcao">
+
+<!-- HOME -->
+<div id="home">
+  <div class="wrap">
+    <div class="home-top">
+      <a class="brand" href="#inicio"><span class="logo"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14a4 4 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg></span>OdontoGest</a>
+      <button class="btn" data-act="entrar">Entrar</button>
+    </div>
+    <section class="hero">
+      <h1>A rotina da sua clínica, organizada.</h1>
+      <p>Agenda, cadastro de pacientes e prontuário com odontograma — tudo em um painel simples para a sua equipe.</p>
+      <button class="btn primary" data-act="abrir">Abrir painel</button>
+    </section>
+    <section class="feat three">
+      <div class="c" data-go="agenda"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M16 2.5v4M8 2.5v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg><h3>Agenda</h3><p>Consultas do dia e da semana com status.</p></div>
+      <div class="c" data-go="pacientes"><svg class="i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><h3>Pacientes</h3><p>Cadastro completo e histórico.</p></div>
+      <div class="c" data-go="prontuario"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="18" rx="2"/><path d="M9 3.5h6v3H9zM9 11h.01M12 11h4M9 15h.01M12 15h4"/></svg><h3>Prontuário</h3><p>Anotações clínicas e odontograma.</p></div>
+    </section>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <header class="app-top">
+    <a class="brand" href="#inicio"><span class="logo"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14a4 4 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg></span>OdontoGest</a>
+    <div class="right">
+      <span class="sync" id="sync"><span class="dot wait"></span>Conectando…</span>
+      <span class="badge" id="role">Equipe</span><button class="btn sm hidden" id="btnSair">Sair</button>
+    </div>
+  </header>
+  <nav class="side" id="side"></nav>
+  <main id="main"></main>
+</div>
+
+<div id="modal" class="hidden"></div>
+<div id="toast" class="hidden"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

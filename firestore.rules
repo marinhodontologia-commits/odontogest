@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ▼ Troque pelo e-mail da PROPRIETÁRIA (o mesmo de ADMIN_EMAILS no firebase-config.js).
+    //   Ela sempre tem acesso total, mesmo que algo seja apagado em "Acessos".
+    function proprietaria() {
+      return request.auth != null
+        && request.auth.token.email.lower() in ['email.da.dentista@gmail.com'];
+    }
+
+    // Demais pessoas: liberadas pela administradora na tela "Acessos" do app.
+    function meuEmail() { return request.auth.token.email.lower(); }
+    function meuAcesso() { return get(/databases/$(database)/documents/acessos/$(meuEmail())).data; }
+    function papel() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/acessos/$(meuEmail()))
+        && meuAcesso().ativo == true
+        ? meuAcesso().papel : '';
+    }
+    function isAdmin()  { return proprietaria() || papel() == 'admin'; }
+    function isEquipe() { return isAdmin() || papel() == 'recepcao'; }
+
+    // ACESSOS: só a administração gerencia; cada pessoa lê o próprio cadastro.
+    match /acessos/{email} {
+      allow read: if isAdmin() || (request.auth != null && email == meuEmail());
+      allow write: if isAdmin();
+    }
+
+    // AGENDA: equipe (recepção + administração) vê e edita.
+    // A conta de sincronização do Google Agenda só lê.
+    match /agenda/{id} {
+      allow read: if isEquipe() || papel() == 'sync';
+      allow delete: if isEquipe();
+      allow create, update: if isEquipe()
+        && request.resource.data.paciente is string
+        && request.resource.data.paciente.size() > 0
+        && request.resource.data.paciente.size() <= 120
+        && request.resource.data.data is string
+        && request.resource.data.data.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.hora is string
+        && request.resource.data.hora.matches('^[0-9]{2}:[0-9]{2}$');
+    }
+
+    // PACIENTES E PRONTUÁRIOS: equipe lê, cadastra e edita; só a administração exclui.
+    match /clinica/dados/{colecao}/{id} {
+      allow read, create, update: if isEquipe();
+      allow delete: if isAdmin();
+    }
+
+    // FINANCEIRO: somente administração.
+    match /adm/{documento=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
