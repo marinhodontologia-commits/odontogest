@@ -10,12 +10,12 @@
 // ============================================================
 
 export const FIREBASE_CONFIG = {
-  apiKey: "COLE_AQUI_A_API_KEY",
-  authDomain: "seu-projeto.firebaseapp.com",
-  projectId: "seu-projeto",
-  storageBucket: "seu-projeto.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000"
+  apiKey: "AIzaSyBvPFSaVzrwKggq__mnURoTo5YpvmSs5Zg",
+  authDomain: "odontogest-marinho.firebaseapp.com",
+  projectId: "odontogest-marinho",
+  storageBucket: "odontogest-marinho.firebasestorage.app",
+  messagingSenderId: "859818262352",
+  appId: "1:859818262352:web:4dd0c64c0bdd873dd0f655"
 };
 
 // Dados que aparecem no cabeçalho das impressões (receita, atestado,
@@ -31,5 +31,5 @@ export const CLINICA = {
 
 // Proprietária: acesso total e permanente (não pode ser removida pela tela de Acessos).
 export const ADMIN_EMAILS = [
-  "email.da.dentista@gmail.com"
+  "marinhodontologia@gmail.com"
 ];

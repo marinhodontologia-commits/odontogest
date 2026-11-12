@@ -6,7 +6,7 @@ service cloud.firestore {
     //   Ela sempre tem acesso total, mesmo que algo seja apagado em "Acessos".
     function proprietaria() {
       return request.auth != null
-        && request.auth.token.email.lower() in ['email.da.dentista@gmail.com'];
+        && request.auth.token.email.lower() in ['marinhodontologia@gmail.com'];
     }
 
     // Demais pessoas: liberadas pela administradora na tela "Acessos" do app.
