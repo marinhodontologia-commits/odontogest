@@ -560,7 +560,7 @@ function openPagar(id){
 
 /* ============ events ============ */
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
+  const el = e.target.closest('[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-restproc],[data-restallocultos],[data-resetvrpo],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
   if(!el) return;
   const d = el.dataset;
   if(d.act==='abrir' || d.act==='entrar') return go(ROUTES[MODO][0]);
@@ -574,6 +574,9 @@ document.addEventListener('click', async e => {
   if(d.novoproc!==undefined) return novoProc();
   if(d.ocultaproc) return ocultarProc(d.ocultaproc);
   if(d.restauratabela!==undefined) return restaurarTabela();
+  if(d.restproc) return mostrarProc(d.restproc);
+  if(d.restallocultos!==undefined) return mostrarTodosProc();
+  if(d.resetvrpo!==undefined) return resetarVRPO();
   if(d.orcprint!==undefined) return orcImprimir(S.orc);
   if(d.orccsv!==undefined){ if(!S.orc.itens.length) return toast('Adicione pelo menos um procedimento.'); return baixarArquivo(`orcamento-${slug(S.orc.paciente)}-${S.orc.data}.csv`, orcCSV(S.orc), 'text/csv;charset=utf-8'); }
   if(d.orccopy!==undefined){ if(!S.orc.itens.length) return toast('Adicione pelo menos um procedimento.'); const txt=orcTexto(S.orc); try{ await navigator.clipboard.writeText(txt); toast('Texto copiado — cole no WhatsApp ou e-mail.'); }catch(_){ openModal('Texto do orçamento', `<textarea style="width:100%;min-height:240px;border:1px solid var(--line);border-radius:9px;padding:10px" readonly>${esc(txt)}</textarea>`); } return; }
@@ -799,7 +802,7 @@ function orcNumero(o){ return o.numero || ('ORC-' + String(o.data||todayISO()).r
 function tabelaRows(){
   const q = norm(S.tabBusca);
   const edit = S.tabEdit && S.isAdmin;
-  const lista = listaPrecos(edit).filter(p => (!S.tabCat || p.cat===S.tabCat) && (!q || norm(p.desc).includes(q) || String(p.cod).includes(q)));
+  const lista = listaPrecos(false).filter(p => (!S.tabCat || p.cat===S.tabCat) && (!q || norm(p.desc).includes(q) || String(p.cod).includes(q)));
   if(!lista.length) return `<tr><td colspan="4"><div class="empty">Nenhum procedimento encontrado.</div></td></tr>`;
   let cat = null, html = '';
   for(const p of lista){
@@ -811,7 +814,7 @@ function tabelaRows(){
         ? `<input type="number" class="inp preco" min="0" step="0.01" value="${Number(p.valor).toFixed(2)}" data-precoid="${esc(p.id)}">`
         : `<b>${BRL(p.valor)}</b>`}</td>
       <td style="text-align:right;white-space:nowrap">${edit
-        ? `<button class="btn sm ghost" data-ocultaproc="${esc(p.id)}">${p.oculto?'Mostrar':'Ocultar'}</button>`
+        ? `<button class="btn sm ghost" data-ocultaproc="${esc(p.id)}">Ocultar</button>`
         : `<button class="btn sm" data-addproc="${esc(p.id)}">${ICON.plus}</button>`}</td></tr>`;
   }
   return html;
@@ -836,7 +839,7 @@ function renderOrcamento(){
   const salvos = S.orcamentos.slice().sort((a,b)=>String(b.data+b.criadoEm).localeCompare(String(a.data+a.criadoEm)));
   $('#main').innerHTML = `
     <div class="ph"><div><h2>Orçamentos</h2><div class="sub">Tabela de procedimentos (referência: ${esc(TABELA_FONTE)}) e montagem de orçamentos</div></div>
-      <div class="tools">${adm?`<button class="btn ${S.tabEdit?'primary':''}" data-tabedit>${S.tabEdit?'Concluir edição':'Editar preços'}</button>${S.tabEdit?`<button class="btn" data-reajuste>Reajustar %</button><button class="btn" data-novoproc>${ICON.plus}Novo procedimento</button><button class="btn ghost" data-restauratabela>Restaurar VRPO</button>`:''}`:''}</div></div>
+      <div class="tools">${adm?`<button class="btn ${S.tabEdit?'primary':''}" data-tabedit>${S.tabEdit?'Concluir edição':'Editar preços'}</button>${S.tabEdit?`<button class="btn" data-reajuste>Reajustar %</button><button class="btn" data-novoproc>${ICON.plus}Novo procedimento</button><button class="btn ghost" data-restauratabela>Restaurar tabela${(()=>{const n=listaPrecos(true).filter(p=>p.oculto).length; return n?` (${n} oculto${n>1?'s':''})`:'';})()}</button>`:''}`:''}</div></div>
     ${S.tabEdit&&adm?`<div class="note info">Modo de edição: altere o valor e clique fora do campo para salvar. Os valores da VRPO 2016 estão desatualizados — use <b>Reajustar %</b> para corrigir a tabela inteira de uma vez.</div>`:''}
     <div class="orc-grid">
       <div class="card"><div class="bd" style="padding:10px;display:flex;gap:8px;flex-wrap:wrap">
@@ -986,8 +989,22 @@ function setPreco(id, valor){
 }
 function ocultarProc(id){
   const itens = tabelaOverrides(); const atual = itens[id] || {};
-  itens[id] = {...atual, oculto:!atual.oculto};
-  tabelaSalvar(itens, atual.oculto?'Procedimento visível na tabela.':'Procedimento oculto da tabela.');
+  itens[id] = {...atual, oculto:true};
+  tabelaSalvar(itens, 'Procedimento retirado da lista. Para trazer de volta, use Restaurar tabela.');
+}
+function semOculto(itens, id){
+  const {oculto, ...resto} = itens[id] || {};
+  if(Object.keys(resto).length) itens[id] = resto; else delete itens[id];
+}
+async function mostrarProc(id){
+  const itens = tabelaOverrides(); semOculto(itens, id);
+  await tabelaSalvar(itens, 'Procedimento restaurado na tabela.');
+  if(listaPrecos(true).some(p=>p.oculto)) restaurarTabela(); else closeModal();
+}
+async function mostrarTodosProc(){
+  const itens = tabelaOverrides();
+  listaPrecos(true).filter(p=>p.oculto).forEach(p=>semOculto(itens, p.id));
+  closeModal(); await tabelaSalvar(itens, 'Todos os procedimentos ocultos voltaram para a tabela.');
 }
 function abrirReajuste(){
   const m = openModal('Reajustar tabela', `<p style="margin:0 0 12px;line-height:1.55">Aplica um percentual sobre os preços de todos os procedimentos${S.tabCat?` da categoria <b>${esc(S.tabCat)}</b>`:''}. Ex.: para atualizar a VRPO 2016, informe o índice de correção acumulado.</p>
@@ -1020,7 +1037,20 @@ function novoProc(){
   m.querySelector('[data-save]').onclick = salvar;
   m.querySelector('#fProc').addEventListener('submit', e=>{ e.preventDefault(); salvar(); });
 }
-async function restaurarTabela(){
+function restaurarTabela(){
+  const ocultos = listaPrecos(true).filter(p=>p.oculto).sort((a,b)=>String(a.desc).localeCompare(String(b.desc),'pt-BR'));
+  const corpo = ocultos.length
+    ? `<p style="margin:0 0 10px;color:var(--muted);font-size:13px">${ocultos.length} procedimento${ocultos.length>1?'s':''} oculto${ocultos.length>1?'s':''}. Clique em <b>Restaurar</b> para devolver à tabela.</p>
+      <div class="tbl-wrap" style="max-height:55vh;overflow:auto"><table><tbody>${ocultos.map(p=>`<tr>
+        <td class="m" style="color:var(--muted);font-size:12px;width:52px">${esc(p.cod||'—')}</td>
+        <td>${esc(p.desc)}<div style="color:var(--muted);font-size:11.5px">${esc(p.cat||'')}</div></td>
+        <td class="num" style="white-space:nowrap">${BRL(p.valor)}</td>
+        <td style="text-align:right"><button class="btn sm primary" data-restproc="${esc(p.id)}">Restaurar</button></td></tr>`).join('')}</tbody></table></div>`
+    : `<div class="empty" style="padding:18px 6px">Nenhum procedimento oculto no momento.</div>`;
+  openModal('Restaurar tabela', corpo,
+    `<button class="btn ghost danger" data-resetvrpo title="Volta todos os preços e itens ao original">Voltar à VRPO original</button><div class="r"><button class="btn" data-close>Fechar</button>${ocultos.length>1?'<button class="btn primary" data-restallocultos>Restaurar todos</button>':''}</div>`);
+}
+async function resetarVRPO(){
   if(!await confirmBox('Voltar todos os preços aos valores originais da VRPO 2016? Procedimentos criados pela clínica também serão removidos.', 'Restaurar')) return;
   tabelaSalvar({}, 'Tabela restaurada para a VRPO 2016.');
 }
