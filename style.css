@@ -36,14 +36,13 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .hero{padding:52px 0 54px}
 .hero h1{font-size:44px;line-height:1.08;letter-spacing:-.02em;margin:0 0 14px;font-weight:700;max-width:520px}
 .hero p{color:var(--muted);font-size:14.5px;line-height:1.6;max-width:390px;margin:0 0 22px}
-.feat{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding-bottom:60px}
+.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:12px;padding-bottom:60px}
 .feat .c{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px 16px 18px;box-shadow:var(--sh);cursor:pointer;transition:transform .15s}
 .feat .c:hover{transform:translateY(-2px)}
 .feat .c svg{color:var(--blue);width:18px;height:18px;margin-bottom:12px}
 .feat h3{font-size:13px;margin:0 0 6px;font-family:Manrope,system-ui,sans-serif;font-weight:700}
 .feat p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.45}
-.feat.three{grid-template-columns:repeat(3,1fr)}
-@media(max-width:720px){.feat,.feat.three{grid-template-columns:1fr 1fr}.hero h1{font-size:34px}}
+@media(max-width:720px){.feat{grid-template-columns:1fr 1fr}.hero h1{font-size:34px}}
 
 /* APP SHELL */
 #app{min-height:100vh;display:grid;grid-template-columns:220px 1fr;grid-template-rows:56px 1fr}
@@ -190,6 +189,30 @@ label.f input:focus,label.f select:focus,label.f textarea:focus,.inp:focus{outli
 #notaTexto{min-height:140px;max-height:65vh;field-sizing:content;line-height:1.5}
 code{background:#f1f5f9;border-radius:4px;padding:1px 4px;font-size:11.5px}
 #printArea{display:none}
+/* orçamentos */
+.orc-grid{display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:16px;align-items:start}
+@media(max-width:1150px){.orc-grid{grid-template-columns:1fr}}
+.tab-precos{max-height:72vh;overflow:auto}
+.tab-precos thead th{position:sticky;top:0;background:#fff;z-index:1}
+.tab-precos td{padding:8px 12px}
+.tab-precos td.cod{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;width:58px}
+.tab-precos tr.tcat td{background:#f8fafc;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);padding:7px 12px}
+.tab-precos tr.oculto{opacity:.45}
+.tab-precos .m{color:var(--muted);font-size:11px;font-weight:500}
+input.preco{width:104px;text-align:right;padding:5px 8px}
+.orc-card{position:sticky;top:72px}
+@media(max-width:1150px){.orc-card{position:static}}
+.orc-it{width:100%}
+.orc-it th{padding:6px 3px;font-size:11px}
+.orc-it td{padding:6px 3px;font-size:12.5px;border-bottom:1px solid #f1f5f9}
+.orc-it .inp{padding:5px 5px;font-size:12.5px}
+.orc-it .btn.ghost{padding:4px}
+.orc-it .btn.ghost svg{width:16px;height:16px}
+.orc-tot{border-top:1px solid var(--line);margin-top:8px;padding-top:4px}
+.orc-tot .row{padding:6px 0}
+.orc-tot .row.total{font-family:Sora,system-ui,sans-serif;font-size:17px;border-bottom:0}
+.orc-tot .row.total b{color:var(--blue-d)}
+.orc-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 @media print{
   body>*:not(#printArea){display:none!important}
   body{background:#fff}
@@ -201,5 +224,15 @@ code{background:#f1f5f9;border-radius:4px;padding:1px 4px;font-size:11.5px}
   .pa-txt{white-space:pre-wrap;line-height:1.6;min-height:120mm}
   .pa-ass{margin:30mm auto 0;width:75mm;text-align:center;font-size:10.5pt}
   .pa-linha{border-top:1px solid #000;margin-bottom:5px}
+  .pa-titulo{font-family:Sora,Arial,sans-serif;font-size:14pt;font-weight:700;text-align:center;margin:4px 0 10px;letter-spacing:.04em}
+  .pa-tab{width:100%;border-collapse:collapse;font-size:10.5pt;margin:6px 0 12px}
+  .pa-tab th{border-bottom:1.5px solid #000;text-align:left;padding:6px 6px;font-size:9.5pt;color:#000}
+  .pa-tab td{border-bottom:1px solid #ccc;padding:6px 6px;vertical-align:top}
+  .pa-tab .num{text-align:right;white-space:nowrap}
+  .pa-tab tfoot td{border-bottom:0;padding:4px 6px}
+  .pa-tab tr.pa-total td{font-weight:700;font-size:12pt;border-top:1.5px solid #000}
+  .pa-bloco{font-size:10.5pt;margin:6px 0;line-height:1.5}
+  .pa-assin2{display:flex;justify-content:space-between;gap:20mm;margin-top:28mm;font-size:10pt;text-align:center}
+  .pa-assin2>div{flex:1}
   @page{size:A4;margin:15mm}
 }

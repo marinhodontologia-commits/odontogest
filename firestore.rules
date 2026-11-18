@@ -42,9 +42,15 @@ service cloud.firestore {
         && request.resource.data.hora.matches('^[0-9]{2}:[0-9]{2}$');
     }
 
-    // PACIENTES E PRONTUÁRIOS: equipe lê, cadastra e edita; só a administração exclui.
+    // TABELA DE PREÇOS: equipe consulta; só a administração altera.
+    match /clinica/dados/tabela/{id} {
+      allow read: if isEquipe();
+      allow write: if isAdmin();
+    }
+    // PACIENTES, PRONTUÁRIOS, MODELOS E ORÇAMENTOS: equipe lê, cadastra e edita; só a administração exclui.
     match /clinica/dados/{colecao}/{id} {
-      allow read, create, update: if isEquipe();
+      allow read: if isEquipe();
+      allow create, update: if isEquipe() && colecao != 'tabela';
       allow delete: if isAdmin();
     }
 

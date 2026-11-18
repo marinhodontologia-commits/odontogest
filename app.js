@@ -1,9 +1,10 @@
 import * as CFG from './firebase-config.js';
 import { MODELOS_PADRAO } from './modelos.js';
+import { TABELA_PADRAO, CATEGORIAS, TABELA_FONTE } from './precos.js';
 const { FIREBASE_CONFIG, ADMIN_EMAILS } = CFG;
 const CLINICA = CFG.CLINICA || {};
 const MODO = document.body.dataset.modo === 'gestao' ? 'gestao' : 'recepcao';
-const ROUTES = { recepcao:['agenda','pacientes','prontuario'], gestao:['visao','agenda','pacientes','prontuario','financeiro','acessos'] };
+const ROUTES = { recepcao:['agenda','pacientes','prontuario','orcamento'], gestao:['visao','agenda','pacientes','prontuario','orcamento','financeiro','acessos'] };
 const DONAS = (ADMIN_EMAILS||[]).map(e=>String(e).toLowerCase().trim());
 const PAPEL = { recepcao:'Recepção', admin:'Administradora', sync:'Sincronização Google Agenda' };
 const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
@@ -43,6 +44,7 @@ const ICON = {
   pacientes:'<svg class="i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   prontuario:'<svg class="i" viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="18" rx="2"/><path d="M9 3.5h6v3H9zM9 11h.01M12 11h4M9 15h.01M12 15h4"/></svg>',
   financeiro:'<svg class="i" viewBox="0 0 24 24"><path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 6v12a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-3"/></svg>',
+  orcamento:'<svg class="i" viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8.5 6.5h7M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01M8.5 18h.01M12 18h3.5"/></svg>',
   acessos:'<svg class="i" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m10.85 12.15 8.65-8.65M18 5l2 2M15 8l2 2"/></svg>',
   home:'<svg class="i" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
   x:'<svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
@@ -55,7 +57,7 @@ const S = {
   db:null, auth:null, fb:null, fbApp:null, uid:null, email:'', role:null, authReady:false,
   get isAdmin(){ return this.role==='admin'; },
   readOnly:false, noDb:false, sync:'wait',
-  agenda:[], pacientes:[], prontuarios:{}, fin:[], acessos:[], modelosDb:{}, notaTipo:'',
+  agenda:[], pacientes:[], prontuarios:{}, fin:[], acessos:[], modelosDb:{}, notaTipo:'', tabelaDb:{}, orcamentos:[], tabBusca:'', tabCat:'', tabEdit:false,
   agView: (window.innerWidth < 700 ? 'dia' : 'semana'), agDate: todayISO(), agProf:'',
   pacBusca:'', selPac:null, selDente:null, finStatus:'todos', finMes: todayISO().slice(0,7)
 };
@@ -65,7 +67,9 @@ const COL = {
   prontuarios: () => S.db.collection('clinica/dados/prontuarios'),
   fin: () => S.db.collection('adm/dados/financeiro'),
   acessos: () => S.db.collection('acessos'),
-  modelos: () => S.db.collection('clinica/dados/modelos')
+  modelos: () => S.db.collection('clinica/dados/modelos'),
+  tabela: () => S.db.collection('clinica/dados/tabela'),
+  orcamentos: () => S.db.collection('clinica/dados/orcamentos')
 };
 
 /* ============ UI primitives ============ */
@@ -129,7 +133,7 @@ function render(){
   // keep focus & typed values across live re-renders
   const a=document.activeElement, aid=a&&a.id, sel=a&&('selectionStart' in a)?a.selectionStart:null;
   const keep={}; document.querySelectorAll('#main [data-keep]').forEach(el=>keep[el.id]=el.value);
-  ({agenda:renderAgenda, visao:renderVisao, pacientes:renderPacientes, prontuario:renderProntuario, financeiro:renderFinanceiro, acessos:renderAcessos})[r]();
+  ({agenda:renderAgenda, visao:renderVisao, pacientes:renderPacientes, prontuario:renderProntuario, financeiro:renderFinanceiro, acessos:renderAcessos, orcamento:renderOrcamento})[r]();
   Object.entries(keep).forEach(([id,v])=>{ const el=document.getElementById(id); if(el && !el.value) el.value=v; });
   if(aid){ const el=document.getElementById(aid); if(el){ el.focus(); try{ if(sel!=null) el.setSelectionRange(sel,sel);}catch(_){} } }
 }
@@ -137,8 +141,8 @@ function render(){
 function renderShell(r){
   const link=(k,l)=>`<a href="#${k}" class="${r===k?'on':''}">${ICON[k]}${l}</a>`;
   let side = '';
-  if(r && MODO==='gestao') side = `${link('visao','Visão geral')}${link('agenda','Agenda')}<div class="sep">Clínica</div>${link('pacientes','Portal do paciente')}${link('prontuario','Prontuário')}<div class="sep">Administração</div>${link('financeiro','Financeiro')}${link('acessos','Acessos')}`;
-  else if(r) side = `${link('agenda','Agenda')}${link('pacientes','Pacientes')}${link('prontuario','Prontuário')}`;
+  if(r && MODO==='gestao') side = `${link('visao','Visão geral')}${link('agenda','Agenda')}<div class="sep">Clínica</div>${link('pacientes','Portal do paciente')}${link('prontuario','Prontuário')}${link('orcamento','Orçamentos')}<div class="sep">Administração</div>${link('financeiro','Financeiro')}${link('acessos','Acessos')}`;
+  else if(r) side = `${link('agenda','Agenda')}${link('pacientes','Pacientes')}${link('prontuario','Prontuário')}${link('orcamento','Orçamentos')}`;
   $('#side').innerHTML = side + `<div class="sep"></div><a href="#inicio">${ICON.home}Início</a>`;
   $('#role').textContent = S.role ? PAPEL[S.role] : (MODO==='gestao' ? 'Gestão' : 'Recepção');
   $('#btnSair').classList.toggle('hidden', !S.uid);
@@ -338,7 +342,7 @@ function renderPacientes(){
     const notas = (pr.notas||[]).slice().sort((a,b)=>String(b.data).localeCompare(String(a.data)));
     det = `<div class="card"><div class="bd">
       <div class="phead"><div style="display:flex;gap:14px;align-items:center"><div class="av">${esc(initials(p.nome))}</div><div><h2 style="margin:0;font-size:19px">${esc(p.nome)}</h2><div style="color:var(--muted);margin-top:2px">${esc([idade(p.nascimento),p.convenio].filter(Boolean).join(' · ')||'Paciente')}</div></div></div>
-        <div class="tools"><button class="btn sm" data-copiar="${esc(p.id)}">Copiar resumo</button><button class="btn sm" data-editpac="${esc(p.id)}">Editar</button><button class="btn sm primary" data-new="${t}" data-pac="${esc(p.id)}">${ICON.plus}Agendar</button></div></div>
+        <div class="tools"><button class="btn sm" data-copiar="${esc(p.id)}">Copiar resumo</button><button class="btn sm" data-novoorc="${esc(p.id)}">Orçamento</button><button class="btn sm" data-editpac="${esc(p.id)}">Editar</button><button class="btn sm primary" data-new="${t}" data-pac="${esc(p.id)}">${ICON.plus}Agendar</button></div></div>
       <div class="dl-info">
         <div><span>Telefone</span><b>${esc(p.telefone||'—')}</b></div>
         <div><span>E-mail</span><b>${esc(p.email||'—')}</b></div>
@@ -556,13 +560,38 @@ function openPagar(id){
 
 /* ============ events ============ */
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
+  const el = e.target.closest('[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
   if(!el) return;
   const d = el.dataset;
   if(d.act==='abrir' || d.act==='entrar') return go(ROUTES[MODO][0]);
   if(d.act==='sair') return sair();
   if(d.act==='esqueci') return esqueci();
   if(d.go) return go(ROUTES[MODO].includes(d.go) ? d.go : ROUTES[MODO][0]);
+  if(d.addproc) return orcAddProc(d.addproc);
+  if(d.orcrm!==undefined){ S.orc.itens.splice(Number(d.orcrm),1); orcSalvarRascunho(); return render(); }
+  if(d.tabedit!==undefined){ S.tabEdit=!S.tabEdit; return render(); }
+  if(d.reajuste!==undefined) return abrirReajuste();
+  if(d.novoproc!==undefined) return novoProc();
+  if(d.ocultaproc) return ocultarProc(d.ocultaproc);
+  if(d.restauratabela!==undefined) return restaurarTabela();
+  if(d.orcprint!==undefined) return orcImprimir(S.orc);
+  if(d.orccsv!==undefined){ if(!S.orc.itens.length) return toast('Adicione pelo menos um procedimento.'); return baixarArquivo(`orcamento-${slug(S.orc.paciente)}-${S.orc.data}.csv`, orcCSV(S.orc), 'text/csv;charset=utf-8'); }
+  if(d.orccopy!==undefined){ if(!S.orc.itens.length) return toast('Adicione pelo menos um procedimento.'); const txt=orcTexto(S.orc); try{ await navigator.clipboard.writeText(txt); toast('Texto copiado — cole no WhatsApp ou e-mail.'); }catch(_){ openModal('Texto do orçamento', `<textarea style="width:100%;min-height:240px;border:1px solid var(--line);border-radius:9px;padding:10px" readonly>${esc(txt)}</textarea>`); } return; }
+  if(d.orcsave!==undefined) return orcSalvar();
+  if(d.orcnovo!==undefined){ if(S.orc.itens.length && !S.orc.id && !await confirmBox('Limpar o orçamento atual? Os itens não salvos serão perdidos.', 'Limpar')) return; S.orc=orcNovo(); orcSalvarRascunho(); return render(); }
+  if(d.orccob!==undefined){
+    if(!orcValidar(S.orc)) return;
+    const r = orcResolverPaciente(S.orc);
+    if(!r.pacienteId) return toast('Cadastre o paciente no Portal do paciente antes de gerar a cobrança.');
+    const t = orcTotais(S.orc);
+    openFin(null, r.pacienteId);
+    const f=$('#fFin'); if(f){ f.descricao.value = 'Orçamento '+(S.orc.numero||'')+' — '+S.orc.itens.length+' procedimento(s)'; f.valor.value = t.total.toFixed(2); }
+    return;
+  }
+  if(d.orcopen){ const o=S.orcamentos.find(x=>x.id===d.orcopen); if(o){ S.orc={...orcNovo(), ...o, id:o.id}; orcSalvarRascunho(); render(); window.scrollTo({top:0,behavior:'smooth'}); } return; }
+  if(d.orcprint2){ const o=S.orcamentos.find(x=>x.id===d.orcprint2); if(o) orcImprimir({...orcNovo(), ...o}); return; }
+  if(d.orcdel){ const o=S.orcamentos.find(x=>x.id===d.orcdel); if(!o) return; if(!await confirmBox(`Excluir o orçamento ${o.numero||''} de ${o.paciente}?`)) return; if(await write('clinica', COL.orcamentos().doc(o.id), null)){ if(S.orc.id===o.id){ S.orc=orcNovo(); orcSalvarRascunho(); } toast('Orçamento excluído.'); } return; }
+  if(d.novoorc){ const p=S.pacientes.find(x=>x.id===d.novoorc); S.orc={...orcNovo(), paciente:p?p.nome:''}; orcSalvarRascunho(); return go('orcamento'); }
   if(d.modelos!==undefined) return openModelos();
   if(d.novomodelo!==undefined) return openModeloEdit();
   if(d.editmodelo) return openModeloEdit(d.editmodelo);
@@ -606,6 +635,11 @@ document.addEventListener('click', async e => {
 });
 document.addEventListener('input', e => {
   if(e.target.id==='pacBusca'){ S.pacBusca=e.target.value; render(); }
+  const t=e.target;
+  if(t.id==='tabBusca'){ S.tabBusca=t.value; const b=$('#tabBody'); if(b) b.innerHTML=tabelaRows(); return; }
+  if(t.dataset && t.dataset.oi!==undefined){ const it=S.orc.itens[Number(t.dataset.oi)]; if(it){ it[t.dataset.f] = t.dataset.f==='dente' ? t.value : (Number(t.value)||0); orcSalvarRascunho(); orcAtualizarTotais(); } return; }
+  const campos = {orcPac:'paciente', orcData:'data', orcVal:'validade', orcDesc:'desc', orcCond:'condicoes', orcObs:'obs'};
+  if(campos[t.id]){ S.orc[campos[t.id]] = t.value; orcSalvarRascunho(); orcAtualizarTotais(); }
 });
 document.addEventListener('change', e => {
   const t=e.target;
@@ -615,6 +649,10 @@ document.addEventListener('change', e => {
   if(t.id==='prontPac'){ S.selPac=t.value||null; S.selDente=null; render(); }
   if(t.id==='finMes'){ S.finMes=t.value; render(); }
   if(t.id==='finStatus'){ S.finStatus=t.value; render(); }
+  if(t.id==='tabCat'){ S.tabCat=t.value; const b=$('#tabBody'); if(b) b.innerHTML=tabelaRows(); }
+  if(t.id==='orcDescTipo'){ S.orc.descTipo=t.value; orcSalvarRascunho(); orcAtualizarTotais(); }
+  if(t.dataset && t.dataset.precoid) return setPreco(t.dataset.precoid, t.value);
+  if(t.dataset && t.dataset.orcstatus){ const o=S.orcamentos.find(x=>x.id===t.dataset.orcstatus); if(o) write('clinica', COL.orcamentos().doc(o.id), {...stripId(o), status:t.value, atualizadoPor:S.email, atualizadoEm:new Date().toISOString()}).then(ok=>ok&&toast('Status atualizado.')); }
 });
 document.addEventListener('submit', e => {
   if(e.target.id==='fLogin'){ e.preventDefault(); return entrar(e.target); }
@@ -638,7 +676,7 @@ async function esqueci(){
   if(!email){ err.classList.remove('hidden'); err.textContent='Digite seu e-mail e clique de novo em “Esqueci a senha”.'; return; }
   try{ await S.fb.sendPasswordResetEmail(S.auth, email); toast('Se o e-mail estiver cadastrado, enviamos um link de redefinição para '+email+'.'); }catch(_){ toast('Não foi possível enviar o e-mail.'); }
 }
-async function sair(){ try{ await S.fb.signOut(S.auth); }catch(_){} go('inicio'); toast('Você saiu.'); }
+async function sair(){ try{ await S.fb.signOut(S.auth); }catch(_){} try{ localStorage.removeItem(ORC_DRAFT); }catch(_){} S.orc = orcNovo(); go('inicio'); toast('Você saiu.'); }
 $('#btnSair').addEventListener('click', sair);
 
 /* ============ MODELOS DE PRONTUÁRIO ============ */
@@ -730,6 +768,263 @@ function imprimirNota(id){
   setTimeout(()=>window.print(), 50);
 }
 
+/* ============ ORÇAMENTOS E TABELA DE PREÇOS ============ */
+const ORC_DRAFT = 'odontogest-orcamento-rascunho';
+const orcNovo = () => ({ id:null, numero:'', pacienteId:'', paciente:'', data:todayISO(), validade:30, itens:[], descTipo:'%', desc:0, condicoes:'', obs:'', status:'aberto' });
+const ORC_STATUS = { aberto:'Em aberto', aprovado:'Aprovado', recusado:'Recusado' };
+function orcSalvarRascunho(){ try{ localStorage.setItem(ORC_DRAFT, JSON.stringify(S.orc)); }catch(_){} }
+function orcCarregarRascunho(){ try{ const v = JSON.parse(localStorage.getItem(ORC_DRAFT)||'null'); if(v && Array.isArray(v.itens)) return {...orcNovo(), ...v}; }catch(_){} return orcNovo(); }
+S.orc = orcCarregarRascunho();
+
+function listaPrecos(incluirOcultos){
+  const ov = (S.tabelaDb && S.tabelaDb.itens) || {};
+  const out = TABELA_PADRAO.map(p => ({...p, ...(ov[p.id]||{}), id:p.id, padrao:true, valorPadrao:p.valor, alterado:!!ov[p.id] && ov[p.id].valor!==undefined && ov[p.id].valor!==p.valor}));
+  Object.entries(ov).forEach(([id,v]) => { if(v && v.custom) out.push({cod:'', ...v, id}); });
+  return out.filter(p => incluirOcultos || !p.oculto);
+}
+function categoriasPrecos(){
+  const cats = [...CATEGORIAS];
+  listaPrecos(true).forEach(p => { if(p.cat && !cats.includes(p.cat)) cats.push(p.cat); });
+  return cats;
+}
+function orcTotais(o){
+  const sub = (o.itens||[]).reduce((s,i)=>s + (Number(i.qtd)||0)*(Number(i.valor)||0), 0);
+  const dv = Number(o.desc)||0;
+  const desc = Math.min(sub, o.descTipo==='%' ? sub*dv/100 : dv);
+  return { sub: Math.round(sub*100)/100, desc: Math.round(desc*100)/100, total: Math.round((sub-desc)*100)/100 };
+}
+function orcValidadeAte(o){ return o.data ? iso(addDays(parseISO(o.data), Number(o.validade)||0)) : ''; }
+function orcNumero(o){ return o.numero || ('ORC-' + String(o.data||todayISO()).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase()); }
+
+function tabelaRows(){
+  const q = norm(S.tabBusca);
+  const edit = S.tabEdit && S.isAdmin;
+  const lista = listaPrecos(edit).filter(p => (!S.tabCat || p.cat===S.tabCat) && (!q || norm(p.desc).includes(q) || String(p.cod).includes(q)));
+  if(!lista.length) return `<tr><td colspan="4"><div class="empty">Nenhum procedimento encontrado.</div></td></tr>`;
+  let cat = null, html = '';
+  for(const p of lista){
+    if(p.cat !== cat && !S.tabCat){ cat = p.cat; html += `<tr class="tcat"><td colspan="4">${esc(cat)}</td></tr>`; }
+    html += `<tr class="${p.oculto?'oculto':''}">
+      <td class="cod">${esc(p.cod||'—')}</td>
+      <td>${esc(p.desc)}${p.custom?' <span class="tag">clínica</span>':''}${edit&&p.alterado?` <span class="m" title="Valor de referência VRPO">ref. ${BRL(p.valorPadrao)}</span>`:''}</td>
+      <td class="num">${edit
+        ? `<input type="number" class="inp preco" min="0" step="0.01" value="${Number(p.valor).toFixed(2)}" data-precoid="${esc(p.id)}">`
+        : `<b>${BRL(p.valor)}</b>`}</td>
+      <td style="text-align:right;white-space:nowrap">${edit
+        ? `<button class="btn sm ghost" data-ocultaproc="${esc(p.id)}">${p.oculto?'Mostrar':'Ocultar'}</button>`
+        : `<button class="btn sm" data-addproc="${esc(p.id)}">${ICON.plus}</button>`}</td></tr>`;
+  }
+  return html;
+}
+
+function orcItensHtml(){
+  const o = S.orc;
+  if(!o.itens.length) return `<div class="empty" style="padding:18px 6px">Clique em <b>+</b> nos procedimentos da tabela para montar o orçamento.</div>`;
+  return `<table class="orc-it"><thead><tr><th>Procedimento</th><th>Dente/região</th><th>Qtd</th><th class="num">Valor</th><th class="num">Total</th><th></th></tr></thead><tbody>${o.itens.map((i,ix)=>`
+    <tr><td>${esc(i.desc)}</td>
+      <td><input class="inp" style="width:62px" id="oi-d-${ix}" data-oi="${ix}" data-f="dente" value="${esc(i.dente||'')}" placeholder="Ex.: 36"></td>
+      <td><input class="inp" style="width:44px" type="number" min="1" step="1" id="oi-q-${ix}" data-oi="${ix}" data-f="qtd" value="${esc(i.qtd)}"></td>
+      <td class="num"><input class="inp" style="width:80px;text-align:right" type="number" min="0" step="0.01" id="oi-v-${ix}" data-oi="${ix}" data-f="valor" value="${Number(i.valor).toFixed(2)}"></td>
+      <td class="num" id="oi-t-${ix}"><b>${BRL((Number(i.qtd)||0)*(Number(i.valor)||0))}</b></td>
+      <td><button class="btn sm ghost" data-orcrm="${ix}" title="Remover">${ICON.x}</button></td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderOrcamento(){
+  const o = S.orc, t = orcTotais(o);
+  const cats = categoriasPrecos();
+  const adm = S.isAdmin;
+  const salvos = S.orcamentos.slice().sort((a,b)=>String(b.data+b.criadoEm).localeCompare(String(a.data+a.criadoEm)));
+  $('#main').innerHTML = `
+    <div class="ph"><div><h2>Orçamentos</h2><div class="sub">Tabela de procedimentos (referência: ${esc(TABELA_FONTE)}) e montagem de orçamentos</div></div>
+      <div class="tools">${adm?`<button class="btn ${S.tabEdit?'primary':''}" data-tabedit>${S.tabEdit?'Concluir edição':'Editar preços'}</button>${S.tabEdit?`<button class="btn" data-reajuste>Reajustar %</button><button class="btn" data-novoproc>${ICON.plus}Novo procedimento</button><button class="btn ghost" data-restauratabela>Restaurar VRPO</button>`:''}`:''}</div></div>
+    ${S.tabEdit&&adm?`<div class="note info">Modo de edição: altere o valor e clique fora do campo para salvar. Os valores da VRPO 2016 estão desatualizados — use <b>Reajustar %</b> para corrigir a tabela inteira de uma vez.</div>`:''}
+    <div class="orc-grid">
+      <div class="card"><div class="bd" style="padding:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <input class="inp" id="tabBusca" style="flex:1;min-width:180px" placeholder="Buscar procedimento ou código" value="${esc(S.tabBusca)}">
+          <select class="inp" id="tabCat"><option value="">Todas as categorias</option>${cats.map(c=>`<option ${c===S.tabCat?'selected':''}>${esc(c)}</option>`).join('')}</select>
+        </div>
+        <div class="tbl-wrap tab-precos"><table><thead><tr><th>Cód.</th><th>Procedimento</th><th class="num">Valor</th><th></th></tr></thead><tbody id="tabBody">${tabelaRows()}</tbody></table></div>
+      </div>
+      <div class="card orc-card"><div class="hd"><h3>${o.id?'Orçamento '+esc(o.numero||''):'Novo orçamento'}</h3><button class="btn sm ghost" data-orcnovo>Limpar</button></div><div class="bd">
+        <div class="fg">
+          <label class="f full">Paciente<input id="orcPac" list="dlPacOrc" value="${esc(o.paciente)}" placeholder="Nome do paciente" autocomplete="off"></label>
+          <datalist id="dlPacOrc">${S.pacientes.map(p=>`<option value="${esc(p.nome)}">`).join('')}</datalist>
+          <label class="f">Data<input type="date" id="orcData" value="${esc(o.data)}"></label>
+          <label class="f">Validade (dias)<input type="number" min="1" id="orcVal" value="${esc(o.validade)}"></label>
+        </div>
+        <div style="margin:14px 0 6px">${orcItensHtml()}</div>
+        <div class="orc-tot">
+          <div class="row"><span class="m">Subtotal</span><b id="orcSub">${BRL(t.sub)}</b></div>
+          <div class="row"><span class="m" style="display:flex;gap:6px;align-items:center">Desconto
+            <select class="inp" id="orcDescTipo" style="padding:3px 6px"><option value="%" ${o.descTipo==='%'?'selected':''}>%</option><option value="R$" ${o.descTipo==='R$'?'selected':''}>R$</option></select>
+            <input class="inp" id="orcDesc" type="number" min="0" step="0.01" style="width:90px;padding:3px 6px" value="${esc(o.desc||0)}"></span><b id="orcDescV" style="color:var(--red)">− ${BRL(t.desc)}</b></div>
+          <div class="row total"><span>Total</span><b id="orcTot">${BRL(t.total)}</b></div>
+        </div>
+        <div class="fg" style="margin-top:12px">
+          <label class="f full">Condições de pagamento<textarea id="orcCond" style="min-height:56px" placeholder="Ex.: à vista no Pix com 5% de desconto ou em até 10x no cartão">${esc(o.condicoes)}</textarea></label>
+          <label class="f full">Observações<textarea id="orcObs" style="min-height:56px">${esc(o.obs)}</textarea></label>
+        </div>
+        <div class="orc-acoes">
+          <button class="btn primary" data-orcprint>Imprimir / PDF</button>
+          <button class="btn" data-orccsv>Baixar planilha</button>
+          <button class="btn" data-orccopy>Copiar texto</button>
+          <button class="btn" data-orcsave>${o.id?'Salvar alterações':'Salvar orçamento'}</button>
+          ${MODO==='gestao'&&adm?`<button class="btn" data-orccob>Gerar cobrança</button>`:''}
+        </div>
+      </div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><div class="hd"><h3>Orçamentos salvos</h3><span class="m" style="color:var(--muted);font-size:12px">${salvos.length} no total</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Nº</th><th>Data</th><th>Paciente</th><th class="num">Total</th><th>Status</th><th></th></tr></thead><tbody>
+      ${salvos.map(s=>`<tr><td>${esc(s.numero||'—')}</td><td>${fmtData(s.data)}</td><td><b>${esc(s.paciente||'—')}</b></td><td class="num"><b>${BRL(s.total)}</b></td>
+        <td><select class="inp" data-orcstatus="${esc(s.id)}" style="padding:3px 6px">${Object.entries(ORC_STATUS).map(([k,l])=>`<option value="${k}" ${s.status===k?'selected':''}>${l}</option>`).join('')}</select></td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn sm ghost" data-orcopen="${esc(s.id)}">Abrir</button><button class="btn sm ghost" data-orcprint2="${esc(s.id)}">Imprimir</button>${adm?`<button class="btn sm ghost danger" data-orcdel="${esc(s.id)}">Excluir</button>`:''}</td></tr>`).join('')
+        || `<tr><td colspan="6"><div class="empty">Nenhum orçamento salvo ainda.</div></td></tr>`}
+      </tbody></table></div></div>`;
+}
+
+function orcAtualizarTotais(){
+  const t = orcTotais(S.orc);
+  const set = (id,v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  set('orcSub', BRL(t.sub)); set('orcDescV', '− '+BRL(t.desc)); set('orcTot', BRL(t.total));
+  S.orc.itens.forEach((i,ix)=>{ const el=document.getElementById('oi-t-'+ix); if(el) el.innerHTML = '<b>'+BRL((Number(i.qtd)||0)*(Number(i.valor)||0))+'</b>'; });
+}
+function orcAddProc(id){
+  const p = listaPrecos(true).find(x=>x.id===id); if(!p) return;
+  S.orc.itens.push({ pid:p.id, cod:p.cod||'', desc:p.desc, dente:'', qtd:1, valor:Number(p.valor)||0 });
+  orcSalvarRascunho(); render(); toast('Adicionado: '+p.desc);
+}
+function orcResolverPaciente(o){
+  const p = S.pacientes.find(x=>norm(x.nome)===norm(o.paciente));
+  return p ? {pacienteId:p.id, paciente:p.nome} : {pacienteId:'', paciente:o.paciente};
+}
+function orcDoc(o){
+  const t = orcTotais(o);
+  return { ...orcResolverPaciente(o), numero: o.numero || orcNumero(o), data:o.data, validade:Number(o.validade)||30,
+    itens: o.itens.map(i=>({pid:i.pid||'', cod:i.cod||'', desc:i.desc, dente:i.dente||'', qtd:Number(i.qtd)||1, valor:Number(i.valor)||0})),
+    descTipo:o.descTipo, desc:Number(o.desc)||0, subtotal:t.sub, descontoValor:t.desc, total:t.total,
+    condicoes:o.condicoes||'', obs:o.obs||'', status:o.status||'aberto' };
+}
+function orcValidar(o){
+  if(!o.itens.length){ toast('Adicione pelo menos um procedimento.'); return false; }
+  if(!String(o.paciente||'').trim()){ toast('Informe o nome do paciente.'); $('#orcPac')?.focus(); return false; }
+  return true;
+}
+async function orcSalvar(){
+  const o = S.orc; if(!orcValidar(o)) return null;
+  const ref = o.id ? COL.orcamentos().doc(o.id) : COL.orcamentos().doc();
+  const atual = o.id ? (S.orcamentos.find(x=>x.id===o.id)||{}) : {};
+  const doc = {...stripId(atual), ...orcDoc(o), atualizadoPor:S.email, atualizadoEm:new Date().toISOString(), ...(o.id?{}:{criadoPor:S.email, criadoEm:new Date().toISOString()})};
+  if(await write('clinica', ref, doc)){ S.orc = {...S.orc, id:ref.id, numero:doc.numero}; orcSalvarRascunho(); render(); toast('Orçamento salvo.'); return ref.id; }
+  return null;
+}
+function orcTexto(o){
+  const t = orcTotais(o);
+  return [`*${CLINICA.nome||'Orçamento odontológico'}*`, `Orçamento para ${o.paciente||'—'} — ${fmtData(o.data)}`, '',
+    ...o.itens.map(i=>`• ${i.desc}${i.dente?' (dente/região '+i.dente+')':''} — ${i.qtd} x ${BRL(i.valor)} = ${BRL((Number(i.qtd)||0)*(Number(i.valor)||0))}`), '',
+    `Subtotal: ${BRL(t.sub)}`, t.desc?`Desconto: − ${BRL(t.desc)}`:'', `*Total: ${BRL(t.total)}*`,
+    o.condicoes?`\nCondições: ${o.condicoes}`:'', `Válido até ${fmtData(orcValidadeAte(o))}.`, o.obs?`\n${o.obs}`:''].filter(x=>x!=='').join('\n');
+}
+function orcCSV(o){
+  const t = orcTotais(o);
+  const n = v => (Math.round((Number(v)||0)*100)/100).toFixed(2).replace('.',',');
+  const q = s => '"' + String(s??'').replace(/"/g,'""') + '"';
+  const linhas = [
+    [q(CLINICA.nome||'Orçamento')], [q('Paciente'), q(o.paciente)], [q('Data'), q(fmtData(o.data))], [q('Válido até'), q(fmtData(orcValidadeAte(o)))], [],
+    [q('Código'), q('Procedimento'), q('Dente/região'), q('Qtd'), q('Valor unitário (R$)'), q('Total (R$)')],
+    ...o.itens.map(i=>[q(i.cod), q(i.desc), q(i.dente), i.qtd, n(i.valor), n((Number(i.qtd)||0)*(Number(i.valor)||0))]),
+    [], ['', '', '', '', q('Subtotal'), n(t.sub)], ['', '', '', '', q('Desconto'), n(t.desc)], ['', '', '', '', q('Total'), n(t.total)],
+    [], [q('Condições'), q(o.condicoes)], [q('Observações'), q(o.obs)]
+  ];
+  return '﻿' + linhas.map(l=>l.join(';')).join('\r\n');
+}
+function baixarArquivo(nome, conteudo, tipo){
+  const url = URL.createObjectURL(new Blob([conteudo], {type:tipo}));
+  const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+function slug(s){ return norm(s).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'paciente'; }
+function orcImprimir(o){
+  if(!o.itens.length){ toast('Adicione pelo menos um procedimento.'); return; }
+  const t = orcTotais(o);
+  let area = document.getElementById('printArea');
+  if(!area){ area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
+  const contato = [CLINICA.endereco, CLINICA.telefone].filter(Boolean).join(' · ');
+  area.innerHTML = `<div class="pa-head"><div class="pa-nome">${esc(CLINICA.nome||'Clínica Odontológica')}</div>${contato?`<div class="pa-ct">${esc(contato)}</div>`:''}</div>
+    <div class="pa-titulo">ORÇAMENTO ${o.numero?esc(o.numero):''}</div>
+    <div class="pa-meta">Paciente: <b>${esc(o.paciente||'')}</b> · Data: ${fmtData(o.data)} · Válido até ${fmtData(orcValidadeAte(o))}</div>
+    <table class="pa-tab"><thead><tr><th>Procedimento</th><th>Dente/região</th><th>Qtd</th><th class="num">Valor unit.</th><th class="num">Total</th></tr></thead><tbody>
+      ${o.itens.map(i=>`<tr><td>${esc(i.desc)}</td><td>${esc(i.dente||'—')}</td><td>${esc(i.qtd)}</td><td class="num">${BRL(i.valor)}</td><td class="num">${BRL((Number(i.qtd)||0)*(Number(i.valor)||0))}</td></tr>`).join('')}
+    </tbody><tfoot>
+      <tr><td colspan="4" class="num">Subtotal</td><td class="num">${BRL(t.sub)}</td></tr>
+      ${t.desc?`<tr><td colspan="4" class="num">Desconto${o.descTipo==='%'?' ('+esc(o.desc)+'%)':''}</td><td class="num">− ${BRL(t.desc)}</td></tr>`:''}
+      <tr class="pa-total"><td colspan="4" class="num">Total</td><td class="num">${BRL(t.total)}</td></tr>
+    </tfoot></table>
+    ${o.condicoes?`<div class="pa-bloco"><b>Condições de pagamento:</b> ${esc(o.condicoes)}</div>`:''}
+    ${o.obs?`<div class="pa-bloco"><b>Observações:</b> ${esc(o.obs)}</div>`:''}
+    <div class="pa-assin2">
+      <div><div class="pa-linha"></div>${esc(CLINICA.dentista||'Cirurgião(ã)-dentista')}${CLINICA.cro?'<br>CRO '+esc(CLINICA.cro):''}</div>
+      <div><div class="pa-linha"></div>De acordo — ${esc(o.paciente||'Paciente')}</div>
+    </div>`;
+  document.body.classList.add('print-orc');
+  setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-orc'), 500); }, 50);
+}
+
+/* edição da tabela (somente administradora) */
+function tabelaOverrides(){ return {...((S.tabelaDb && S.tabelaDb.itens)||{})}; }
+async function tabelaSalvar(itens, msg){
+  const doc = { itens, atualizadoPor:S.email, atualizadoEm:new Date().toISOString() };
+  S.tabelaDb = doc; render();
+  if(await write('clinica', COL.tabela().doc('precos'), doc) && msg) toast(msg);
+}
+function setPreco(id, valor){
+  const v = Math.round((Number(valor)||0)*100)/100;
+  const itens = tabelaOverrides(); const p = TABELA_PADRAO.find(x=>x.id===id);
+  const atual = itens[id] || {};
+  if(p && v===p.valor && !atual.oculto && !atual.custom){ delete itens[id]; }
+  else itens[id] = {...atual, valor:v};
+  tabelaSalvar(itens, 'Preço atualizado.');
+}
+function ocultarProc(id){
+  const itens = tabelaOverrides(); const atual = itens[id] || {};
+  itens[id] = {...atual, oculto:!atual.oculto};
+  tabelaSalvar(itens, atual.oculto?'Procedimento visível na tabela.':'Procedimento oculto da tabela.');
+}
+function abrirReajuste(){
+  const m = openModal('Reajustar tabela', `<p style="margin:0 0 12px;line-height:1.55">Aplica um percentual sobre os preços de todos os procedimentos${S.tabCat?` da categoria <b>${esc(S.tabCat)}</b>`:''}. Ex.: para atualizar a VRPO 2016, informe o índice de correção acumulado.</p>
+    <form id="fReaj" class="fg"><label class="f">Percentual (%)<input type="number" step="0.01" name="pct" required placeholder="Ex.: 55"></label>
+    <label class="f">Base do cálculo<select name="base"><option value="atual">Preços atuais</option><option value="vrpo">Valores originais da VRPO 2016</option></select></label></form>`,
+    `<div class="r"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Aplicar</button></div>`);
+  m.querySelector('[data-save]').onclick = async()=>{
+    const f = m.querySelector('#fReaj'); if(!f.reportValidity()) return;
+    const o = formData(f); const fator = 1 + (Number(o.pct)||0)/100;
+    const alvo = listaPrecos(true).filter(p => !S.tabCat || p.cat===S.tabCat);
+    if(!await confirmBox(`Aplicar ${o.pct}% sobre ${alvo.length} procedimentos (base: ${o.base==='vrpo'?'VRPO 2016':'preços atuais'})?`, 'Aplicar')) return;
+    const itens = tabelaOverrides();
+    alvo.forEach(p => { const base = o.base==='vrpo' && p.padrao ? p.valorPadrao : Number(p.valor)||0; itens[p.id] = {...(itens[p.id]||{}), valor: Math.round(base*fator*100)/100}; });
+    tabelaSalvar(itens, 'Tabela reajustada.');
+  };
+}
+function novoProc(){
+  const m = openModal('Novo procedimento', `<form id="fProc" class="fg">
+    <label class="f full">Descrição<input name="desc" required placeholder="Ex.: Lente de contato dental em porcelana (por elemento)"></label>
+    <label class="f">Categoria<input name="cat" list="dlCats" required value="${esc(S.tabCat||'')}"></label>
+    <datalist id="dlCats">${categoriasPrecos().map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+    <label class="f">Valor (R$)<input type="number" step="0.01" min="0" name="valor" required></label></form>`,
+    `<div class="r"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Adicionar</button></div>`);
+  const salvar = ()=>{
+    const f = m.querySelector('#fProc'); if(!f.reportValidity()) return;
+    const o = formData(f); const itens = tabelaOverrides();
+    itens['c'+Date.now().toString(36)] = { custom:true, cat:o.cat, desc:o.desc, valor:Math.round(Number(o.valor)*100)/100 };
+    closeModal(); tabelaSalvar(itens, 'Procedimento adicionado à tabela.');
+  };
+  m.querySelector('[data-save]').onclick = salvar;
+  m.querySelector('#fProc').addEventListener('submit', e=>{ e.preventDefault(); salvar(); });
+}
+async function restaurarTabela(){
+  if(!await confirmBox('Voltar todos os preços aos valores originais da VRPO 2016? Procedimentos criados pela clínica também serão removidos.', 'Restaurar')) return;
+  tabelaSalvar({}, 'Tabela restaurada para a VRPO 2016.');
+}
+
 /* ============ ACESSOS (gestão) ============ */
 function renderAcessos(){
   const lista = S.acessos.slice().sort((a,b)=>String(a.nome||a.id).localeCompare(String(b.nome||b.id),'pt-BR'));
@@ -811,7 +1106,7 @@ async function delAcesso(id){
 
 /* ============ boot (Firebase) ============ */
 let dataSubs = [];
-function pararDados(){ dataSubs.forEach(f=>{ try{f()}catch(_){} }); dataSubs=[]; S.agenda=[]; S.pacientes=[]; S.prontuarios={}; S.fin=[]; S.acessos=[]; S.modelosDb={}; }
+function pararDados(){ dataSubs.forEach(f=>{ try{f()}catch(_){} }); dataSubs=[]; S.agenda=[]; S.pacientes=[]; S.prontuarios={}; S.fin=[]; S.acessos=[]; S.modelosDb={}; S.tabelaDb={}; S.orcamentos=[]; }
 function aplicarPapel(role){
   if(role === S.role && (dataSubs.length || !role)) { render(); return; }
   pararDados(); S.role = role; S.sync = 'wait';
@@ -822,6 +1117,8 @@ function aplicarPapel(role){
     sub(COL.pacientes(), s=>{ S.pacientes = s.docs.map(d=>({id:d.id, ...d.data()})); });
     sub(COL.prontuarios(), s=>{ const o={}; s.docs.forEach(d=>o[d.id]=d.data()); S.prontuarios=o; });
     sub(COL.modelos(), s=>{ const o={}; s.docs.forEach(d=>o[d.id]=d.data()); S.modelosDb=o; });
+    sub(COL.orcamentos(), s=>{ S.orcamentos = s.docs.map(d=>({id:d.id, ...d.data()})); });
+    dataSubs.push(COL.tabela().doc('precos').onSnapshot(d=>{ S.tabelaDb = d.exists ? (d.data()||{}) : {}; render(); }, ()=>{}));
     if(role==='admin'){
       sub(COL.fin(), s=>{ S.fin = s.docs.map(d=>({id:d.id, ...d.data()})); });
       sub(COL.acessos(), s=>{ S.acessos = s.docs.map(d=>({id:d.id, ...d.data()})); });
