@@ -4,15 +4,16 @@
 // próprio app (Prontuário › Termos › Modelos de termo).
 //
 // Campos automáticos:
-//   {{paciente}} {{cpf}} {{idade}} {{procedimento}} {{dentes}} {{clinica}}
-//   {{dentista}} {{cro}} {{cidade}} {{data_extenso}}
+//   paciente: {{paciente}} {{cpf}} {{nascimento}} {{idade}} {{endereco}} {{telefone}} {{email}} {{convenio}}
+//   termo: {{procedimento}} {{dentes}} {{assinante}} {{assinante_cpf}} {{representacao}}
+//   dentista/clínica: {{dentista}} {{cro}} {{clinica}} {{endereco_clinica}} {{telefone_clinica}} {{cidade}} {{data}} {{data_extenso}}
 
 export const TERMOS_PADRAO = [
   { id:'t-geral', ordem:1, nome:'Consentimento para tratamento odontológico', texto:
 `TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO
 TRATAMENTO ODONTOLÓGICO
 
-Eu, {{paciente}}, CPF {{cpf}}, declaro que fui informado(a) de forma clara pelo(a) {{dentista}} (CRO {{cro}}) sobre o tratamento proposto:
+Eu, {{paciente}}, CPF {{cpf}}, nascido(a) em {{nascimento}}, residente em {{endereco}}, telefone {{telefone}}{{representacao}}, declaro que fui informado(a) de forma clara pelo(a) {{dentista}} (CRO {{cro}}), da {{clinica}}, sobre o tratamento proposto:
 
 Procedimento(s): {{procedimento}}
 Dente(s)/região: {{dentes}}
@@ -33,7 +34,7 @@ Autorizo a realização do tratamento descrito acima.
 `TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO
 EXODONTIA / CIRURGIA ORAL
 
-Eu, {{paciente}}, CPF {{cpf}}, autorizo o(a) {{dentista}} (CRO {{cro}}) a realizar o seguinte procedimento cirúrgico:
+Eu, {{paciente}}, CPF {{cpf}}, nascido(a) em {{nascimento}}, residente em {{endereco}}, telefone {{telefone}}{{representacao}}, autorizo o(a) {{dentista}} (CRO {{cro}}), da {{clinica}}, a realizar o seguinte procedimento cirúrgico:
 
 Procedimento: {{procedimento}}
 Dente(s)/região: {{dentes}}
@@ -52,7 +53,7 @@ Tive a oportunidade de esclarecer minhas dúvidas e autorizo a realização do p
 `TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO
 TRATAMENTO ENDODÔNTICO (CANAL)
 
-Eu, {{paciente}}, CPF {{cpf}}, autorizo o(a) {{dentista}} (CRO {{cro}}) a realizar tratamento endodôntico no(s) dente(s) {{dentes}}.
+Eu, {{paciente}}, CPF {{cpf}}, nascido(a) em {{nascimento}}, residente em {{endereco}}, telefone {{telefone}}{{representacao}}, autorizo o(a) {{dentista}} (CRO {{cro}}), da {{clinica}}, a realizar tratamento endodôntico no(s) dente(s) {{dentes}}.
 
 Fui informado(a) de que o tratamento pode exigir mais de uma sessão; de que pode haver dor ou desconforto entre as sessões; de que, em alguns casos, pode ocorrer fratura de instrumento, perfuração, calcificação ou anatomia que impeça a conclusão, sendo necessário encaminhamento, cirurgia complementar ou extração; e de que, após o canal, o dente precisa ser restaurado definitivamente (restauração, pino e/ou coroa) para não fraturar.
 
@@ -66,7 +67,7 @@ Tive a oportunidade de esclarecer minhas dúvidas e autorizo a realização do t
 `TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO
 CLAREAMENTO DENTAL
 
-Eu, {{paciente}}, CPF {{cpf}}, autorizo o(a) {{dentista}} (CRO {{cro}}) a realizar clareamento dental pela técnica: {{procedimento}}.
+Eu, {{paciente}}, CPF {{cpf}}, nascido(a) em {{nascimento}}, residente em {{endereco}}, telefone {{telefone}}{{representacao}}, autorizo o(a) {{dentista}} (CRO {{cro}}), da {{clinica}}, a realizar clareamento dental pela técnica: {{procedimento}}.
 
 Fui informado(a) de que o resultado varia de pessoa para pessoa e não pode ser garantido em tons exatos; de que restaurações, coroas e facetas existentes não clareiam e podem precisar ser trocadas depois; de que é comum ocorrer sensibilidade dentária e irritação gengival temporárias; e de que devo seguir as orientações de uso da moldeira e de dieta durante o tratamento.
 
@@ -80,7 +81,7 @@ Tive a oportunidade de esclarecer minhas dúvidas e autorizo a realização do t
 `TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO
 IMPLANTE DENTÁRIO
 
-Eu, {{paciente}}, CPF {{cpf}}, autorizo o(a) {{dentista}} (CRO {{cro}}) a realizar a instalação de implante(s) dentário(s) na(s) região(ões): {{dentes}}.
+Eu, {{paciente}}, CPF {{cpf}}, nascido(a) em {{nascimento}}, residente em {{endereco}}, telefone {{telefone}}{{representacao}}, autorizo o(a) {{dentista}} (CRO {{cro}}), da {{clinica}}, a realizar a instalação de implante(s) dentário(s) na(s) região(ões): {{dentes}}.
 Procedimento(s): {{procedimento}}
 
 Fui informado(a) de que o tratamento envolve cirurgia sob anestesia local e um período de cicatrização antes da prótese; de que podem ocorrer dor, inchaço, hematoma, infecção, alteração de sensibilidade e, em alguns casos, a não integração do implante ao osso, sendo necessária sua remoção e nova tentativa; e de que pode ser preciso enxerto ósseo ou outros procedimentos complementares.
@@ -94,7 +95,7 @@ Tive a oportunidade de esclarecer minhas dúvidas e autorizo a realização do t
   { id:'t-plano', ordem:6, nome:'Aprovação do plano de tratamento e orçamento', texto:
 `APROVAÇÃO DO PLANO DE TRATAMENTO E ORÇAMENTO
 
-Eu, {{paciente}}, CPF {{cpf}}, declaro que recebi e compreendi o plano de tratamento e o orçamento apresentados pelo(a) {{dentista}} (CRO {{cro}}) da {{clinica}}:
+Eu, {{paciente}}, CPF {{cpf}}, nascido(a) em {{nascimento}}, residente em {{endereco}}, telefone {{telefone}}{{representacao}}, declaro que recebi e compreendi o plano de tratamento e o orçamento apresentados pelo(a) {{dentista}} (CRO {{cro}}) da {{clinica}}:
 
 {{procedimento}}
 
@@ -107,7 +108,7 @@ Aprovo o plano de tratamento e o orçamento acima.
   { id:'t-imagem', ordem:7, nome:'Autorização de uso de imagem', texto:
 `AUTORIZAÇÃO DE USO DE IMAGEM
 
-Eu, {{paciente}}, CPF {{cpf}}, autorizo a {{clinica}} a registrar fotografias e imagens do meu tratamento odontológico e a utilizá-las:
+Eu, {{paciente}}, CPF {{cpf}}, nascido(a) em {{nascimento}}, residente em {{endereco}}, telefone {{telefone}}{{representacao}}, autorizo a {{clinica}} a registrar fotografias e imagens do meu tratamento odontológico e a utilizá-las:
 
 ( ) apenas no meu prontuário e para fins clínicos
 ( ) em publicações científicas e aulas, sem identificação do meu rosto
@@ -121,7 +122,7 @@ A autorização é gratuita e pode ser revogada a qualquer momento, por escrito,
   { id:'t-recusa', ordem:8, nome:'Recusa de tratamento', texto:
 `TERMO DE RECUSA DE TRATAMENTO
 
-Eu, {{paciente}}, CPF {{cpf}}, declaro que fui orientado(a) pelo(a) {{dentista}} (CRO {{cro}}) sobre a necessidade do seguinte tratamento:
+Eu, {{paciente}}, CPF {{cpf}}, nascido(a) em {{nascimento}}, residente em {{endereco}}, telefone {{telefone}}{{representacao}}, declaro que fui orientado(a) pelo(a) {{dentista}} (CRO {{cro}}), da {{clinica}}, sobre a necessidade do seguinte tratamento:
 
 {{procedimento}} — dente(s)/região: {{dentes}}
 

@@ -817,8 +817,7 @@ function preencherModelo(txt){
   const p = S.pacientes.find(x=>x.id===S.selPac) || {};
   const data = $('#notaData')?.value || todayISO();
   const dente = $('#notaDente')?.value || S.selDente || '';
-  const v = { paciente:p.nome||'__________', idade:idade(p.nascimento)||'___', data:fmtData(data), data_extenso:dataExtenso(data),
-    dente:dente||'___', cidade:CLINICA.cidade||'__________', dentista:CLINICA.dentista||'__________', cro:CLINICA.cro||'______' };
+  const v = { ...camposDocumento(p, {data, dente, dentes:dente}), dente:dente||'___' };
   return String(txt||'').replace(/\{\{(\w+)\}\}/g, (m,k)=> k in v ? v[k] : m);
 }
 async function inserirModelo(id){
@@ -848,7 +847,7 @@ function openModeloEdit(id){
   const body = `<form id="fMod" class="fg">
     <label class="f full">Nome do modelo<input name="nome" required value="${esc(m.nome)}" placeholder="Ex.: Raspagem subgengival"></label>
     <label class="f full">Texto<textarea name="texto" required style="min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px">${esc(m.texto)}</textarea></label>
-    <div class="full" style="color:var(--muted);font-size:12px;line-height:1.6">Campos automáticos: <code>{{paciente}}</code> <code>{{idade}}</code> <code>{{data}}</code> <code>{{data_extenso}}</code> <code>{{dente}}</code> <code>{{cidade}}</code> <code>{{dentista}}</code> <code>{{cro}}</code>. Use <code>___</code> para lacunas: o cursor vai direto para a primeira.</div>
+    <div class="full" style="color:var(--muted);font-size:12px;line-height:1.6">Campos automáticos: ${CAMPOS_AJUDA} <code>{{dente}}</code>. Use <code>___</code> para lacunas: o cursor vai direto para a primeira.</div>
   </form>`;
   const mm = openModal(id?'Editar modelo':'Novo modelo', body, `<button class="btn" data-modelos>Voltar</button><div class="r"><button class="btn primary" data-save>Salvar modelo</button></div>`);
   const f = mm.querySelector('#fMod');
@@ -1401,9 +1400,27 @@ function renderTermosPac(p){
       : `<div class="empty" style="padding:30px 10px">Nenhum termo ainda.<br><span style="font-size:12px">Use <b>Novo termo para assinar</b> para o paciente assinar no tablet, ou <b>Anexar termo em papel</b> para guardar a foto/PDF de um termo assinado à mão.</span></div>`}
     </div></div>`;
 }
+/* Campos automáticos dos modelos: dados do paciente (cadastro), da dentista e da clínica.
+   O que não estiver cadastrado vira uma lacuna "____" para completar à mão ou editar. */
+function camposDocumento(p, o){
+  p = p || {}; o = o || {};
+  const lac = n => '_'.repeat(n||12);
+  const resp = o.relacao && o.relacao!=='Paciente' && o.assinante;
+  return {
+    paciente: p.nome || lac(), cpf: p.cpf || '___.___.___-__', nascimento: p.nascimento ? fmtData(p.nascimento) : '___/___/______',
+    idade: idade(p.nascimento) || lac(3), endereco: p.endereco || lac(30), telefone: p.telefone || lac(14), email: p.email || lac(16),
+    convenio: p.convenio || 'Particular',
+    procedimento: o.procedimento || lac(), dentes: o.dentes || lac(4), dente: o.dente || o.dentes || lac(4),
+    assinante: o.assinante || p.nome || lac(), assinante_cpf: o.doc || (resp ? '___.___.___-__' : (p.cpf || '___.___.___-__')),
+    representacao: resp ? `, neste ato representado(a) por seu(sua) responsável legal ${o.assinante}${o.doc?', CPF '+o.doc:''}` : '',
+    clinica: CLINICA.nome || 'clínica', endereco_clinica: CLINICA.endereco || lac(30), telefone_clinica: CLINICA.telefone || lac(14),
+    dentista: CLINICA.dentista || lac(), cro: CLINICA.cro || lac(6), cidade: CLINICA.cidade || lac(),
+    data: fmtData(o.data || todayISO()), data_extenso: dataExtenso(o.data || todayISO())
+  };
+}
+const CAMPOS_AJUDA = '<code>{{paciente}}</code> <code>{{cpf}}</code> <code>{{nascimento}}</code> <code>{{idade}}</code> <code>{{endereco}}</code> <code>{{telefone}}</code> <code>{{email}}</code> <code>{{convenio}}</code> <code>{{procedimento}}</code> <code>{{dentes}}</code> <code>{{assinante}}</code> <code>{{assinante_cpf}}</code> <code>{{representacao}}</code> <code>{{dentista}}</code> <code>{{cro}}</code> <code>{{clinica}}</code> <code>{{endereco_clinica}}</code> <code>{{telefone_clinica}}</code> <code>{{cidade}}</code> <code>{{data}}</code> <code>{{data_extenso}}</code>';
 function preencherTermo(txt, p, o){
-  const v = { paciente:p.nome||'__________', cpf:p.cpf||'___.___.___-__', idade:idade(p.nascimento)||'___', procedimento:o.procedimento||'__________', dentes:o.dentes||'___',
-    clinica:CLINICA.nome||'clínica', dentista:CLINICA.dentista||'__________', cro:CLINICA.cro||'______', cidade:CLINICA.cidade||'__________', data_extenso:dataExtenso(todayISO()) };
+  const v = camposDocumento(p, o);
   return String(txt||'').replace(/\{\{(\w+)\}\}/g, (m,k)=> k in v ? v[k] : m);
 }
 function novoTermo(pid){
@@ -1414,7 +1431,8 @@ function novoTermo(pid){
       <label class="f full">Modelo<select name="modelo">${mods.map(x=>`<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('')}<option value="">— Texto livre —</option></select></label>
       <label class="f">Procedimento(s)<input name="procedimento" placeholder="Ex.: Exodontia do 38"></label>
       <label class="f">Dente(s) / região<input name="dentes" placeholder="Ex.: 38"></label>
-      <label class="f full">Texto do termo <span style="font-weight:500;color:var(--muted)">(revise antes de passar o tablet ao paciente)</span><textarea name="texto" id="termoTexto" style="min-height:260px;font-size:13px;line-height:1.5"></textarea></label>
+      <label class="f full">Texto do termo <span style="font-weight:500;color:var(--muted)">(já preenchido com os dados do paciente e da Dra. — pode editar livremente)</span><textarea name="texto" id="termoTexto" style="min-height:300px;font-size:13px;line-height:1.5"></textarea></label>
+      <div class="full" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:-6px"><span id="termoAuto">✓ Atualiza sozinho ao mudar procedimento, dentes ou quem assina. Ao editar o texto, suas alterações são mantidas.</span><button type="button" class="btn sm ghost" id="termoRefazer">Refazer a partir do modelo</button>${!p.cpf||!p.endereco||!p.nascimento?`<span style="color:#b45309">Cadastro incompleto (${[!p.cpf&&'CPF',!p.nascimento&&'nascimento',!p.endereco&&'endereço'].filter(Boolean).join(', ')}): esses campos saem em branco “____”.</span>`:''}</div>
       <label class="f">Quem vai assinar<select name="relacao"><option ${menor?'':'selected'}>Paciente</option><option ${menor?'selected':''}>Responsável legal</option></select></label>
       <label class="f">Nome de quem assina<input name="assinante" required value="${esc(menor?'':p.nome)}"></label>
       <label class="f">CPF de quem assina<input name="doc" value="${esc(menor?'':(p.cpf||''))}" placeholder="Opcional, recomendado"></label>
@@ -1423,11 +1441,13 @@ function novoTermo(pid){
     </form>`, `<div class="r"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Coletar assinatura ✍</button></div>`);
   m.querySelector('.mbox').classList.add('wide');
   const f = m.querySelector('#fTermo');
-  const atualizar = ()=>{ const md = mods.find(x=>x.id===f.modelo.value); f.texto.value = md ? preencherTermo(md.texto, p, {procedimento:f.procedimento.value, dentes:f.dentes.value}) : (f.texto.value && !f.texto.dataset.auto ? f.texto.value : ''); f.texto.dataset.auto = md?'1':''; };
+  const dadosForm = ()=>({procedimento:f.procedimento.value, dentes:f.dentes.value, relacao:f.relacao.value, assinante:f.assinante.value, doc:f.doc.value});
+  const atualizar = ()=>{ const md = mods.find(x=>x.id===f.modelo.value); f.texto.value = md ? preencherTermo(md.texto, p, dadosForm()) : (f.texto.value && !f.texto.dataset.auto ? f.texto.value : ''); f.texto.dataset.auto = md?'1':''; m.querySelector('#termoAuto').style.display = md && f.texto.dataset.auto==='1' ? '' : 'none'; };
   f.modelo.addEventListener('change', atualizar);
-  ['procedimento','dentes'].forEach(n=>f[n].addEventListener('input', ()=>{ if(f.texto.dataset.auto==='1') atualizar(); }));
-  f.texto.addEventListener('input', ()=>{ f.texto.dataset.auto = ''; });
-  f.relacao.addEventListener('change', ()=>{ if(f.relacao.value==='Paciente'){ f.assinante.value = p.nome; f.doc.value = p.cpf||''; } else { f.assinante.value=''; f.doc.value=''; f.assinante.focus(); } });
+  ['procedimento','dentes','assinante','doc'].forEach(n=>f[n].addEventListener('input', ()=>{ if(f.texto.dataset.auto==='1') atualizar(); }));
+  m.querySelector('#termoRefazer').onclick = ()=>{ if(f.texto.dataset.auto!=='1' && !window.confirm('Refazer o texto a partir do modelo? As edições feitas à mão serão perdidas.')) return; f.texto.dataset.auto='1'; atualizar(); };
+  f.texto.addEventListener('input', ()=>{ f.texto.dataset.auto = ''; m.querySelector('#termoAuto').style.display='none'; });
+  f.relacao.addEventListener('change', ()=>{ if(f.relacao.value==='Paciente'){ f.assinante.value = p.nome; f.doc.value = p.cpf||''; } else { f.assinante.value=''; f.doc.value=''; f.assinante.focus(); } if(f.texto.dataset.auto==='1') atualizar(); });
   atualizar();
   m.querySelector('[data-save]').onclick = async()=>{
     if(!f.reportValidity()) return;
@@ -1521,7 +1541,7 @@ async function excluirTermo(id){
 }
 function abrirTermosModelos(){
   const l = listaTermosModelos(true);
-  const m = openModal('Modelos de termo', `<p style="margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5">Os modelos que vêm no sistema são um ponto de partida — revise o texto com a responsável técnica. Campos automáticos: <code>{{paciente}}</code> <code>{{cpf}}</code> <code>{{idade}}</code> <code>{{procedimento}}</code> <code>{{dentes}}</code> <code>{{clinica}}</code> <code>{{dentista}}</code> <code>{{cro}}</code> <code>{{cidade}}</code> <code>{{data_extenso}}</code>.</p>
+  const m = openModal('Modelos de termo', `<p style="margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5">Os modelos que vêm no sistema são um ponto de partida — revise o texto com a responsável técnica. Ao gerar o termo, estes campos são trocados pelos dados do paciente, da Dra. e da clínica: ${CAMPOS_AJUDA}.</p>
     <div class="parc-l">${l.map(x=>`<div class="parc" style="cursor:default"><span class="pd"><b>${esc(x.nome)}</b><small>${x.oculto?'Oculto':x.alterado?'Editado pela clínica':x.padrao?'Modelo do sistema':'Criado pela clínica'}</small></span><button class="btn sm" data-tmedit="${esc(x.id)}">Editar</button><button class="btn sm ghost" data-tmoc="${esc(x.id)}">${x.oculto?'Mostrar':'Ocultar'}</button></div>`).join('')}</div>`,
     `<button class="btn" data-tmnovo>${ICON.plus}Novo modelo</button><div class="r"><button class="btn" data-close>Fechar</button></div>`);
   m.querySelector('[data-tmnovo]').onclick = ()=>editarTermoModelo(null);
