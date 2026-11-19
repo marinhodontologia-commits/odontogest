@@ -889,7 +889,7 @@ function imprimirNota(id){
     <div class="pa-meta">Paciente: <b>${esc(p.nome||'')}</b>${p.nascimento?' · '+esc(idade(p.nascimento)):''} · ${fmtData(n.data)}${n.dente?' · dente '+esc(n.dente):''}</div>
     <div class="pa-txt">${esc(n.texto)}</div>
     <div class="pa-ass"><div class="pa-linha"></div>${esc(CLINICA.dentista||'Cirurgião(ã)-dentista')}${CLINICA.cro?'<br>CRO '+esc(CLINICA.cro):''}</div>`;
-  setTimeout(()=>window.print(), 50);
+  setTimeout(()=>imprimirArea(), 50);
 }
 
 /* ============ ORÇAMENTOS E TABELA DE PREÇOS ============ */
@@ -1090,7 +1090,7 @@ function orcImprimir(o){
       <div><div class="pa-linha"></div>De acordo — ${esc(o.paciente||'Paciente')}</div>
     </div>`;
   document.body.classList.add('print-orc');
-  setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-orc'), 500); }, 50);
+  setTimeout(()=>{ imprimirArea(); setTimeout(()=>document.body.classList.remove('print-orc'), 500); }, 50);
 }
 
 /* edição da tabela (somente administradora) */
@@ -1176,6 +1176,18 @@ async function resetarVRPO(){
   tabelaSalvar({}, 'Tabela restaurada para a VRPO 2016.');
 }
 
+/* Impressão sem o endereço do site: a página é impressa sem margem em cima e embaixo
+   (assim o navegador não tem onde colocar cabeçalho/rodapé com link, título e data)
+   e o espaço é recriado por uma tabela cujo cabeçalho/rodapé se repetem em cada folha. */
+function imprimirArea(){
+  const area = document.getElementById('printArea'); if(!area) return window.print();
+  if(!area.querySelector('.rx-pag') && !area.querySelector(':scope > table.pa-pg')){
+    area.innerHTML = `<table class="pa-pg"><thead><tr><td><div class="pa-sp"></div></td></tr></thead><tbody><tr><td>${area.innerHTML}</td></tr></tbody><tfoot><tr><td><div class="pa-sp"></div></td></tr></tfoot></table>`;
+  }
+  const titulo = document.title; document.title = CLINICA.nome || 'Clínica';
+  window.print();
+  setTimeout(()=>{ document.title = titulo; }, 800);
+}
 /* ============ PRONTUÁRIO: IMAGENS, TERMOS E ASSINATURA ============ */
 const ANX_CAT = { intraoral:'Foto intraoral', extraoral:'Foto extraoral', periapical:'Radiografia periapical', panoramica:'Radiografia panorâmica', interproximal:'Radiografia interproximal', tomografia:'Tomografia', exame:'Exame / laudo', termo:'Termo assinado (papel)', outro:'Outro' };
 const ANX_CHUNK = 900000;            // caracteres por pedaço (limite de 1 MB por documento no Firestore)
@@ -1462,7 +1474,7 @@ function imprimirTermo(t){
   const contato = [CLINICA.endereco, CLINICA.telefone].filter(Boolean).join(' · ');
   area.innerHTML = `<div class="pa-head"><div class="pa-nome">${esc(CLINICA.nome||'Clínica Odontológica')}</div>${contato?`<div class="pa-ct">${esc(contato)}</div>`:''}</div><div class="termo-doc">${termoHtml(t)}</div>`;
   document.body.classList.add('print-termo');
-  setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-termo'), 500); }, 80);
+  setTimeout(()=>{ imprimirArea(); setTimeout(()=>document.body.classList.remove('print-termo'), 500); }, 80);
 }
 async function excluirTermo(id){
   const t = S.termos.find(x=>x.id===id); if(!t) return;
@@ -1734,7 +1746,7 @@ function recImprimir(r){
   </div>`;
   area.innerHTML = vias.map(pag).join('');
   document.body.classList.add('print-rx');
-  setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-rx'), 500); }, 50);
+  setTimeout(()=>{ imprimirArea(); setTimeout(()=>document.body.classList.remove('print-rx'), 500); }, 50);
 }
 function recAbrir(x, novo){
   S.rec = {...recNova(), ...x, itens:(x.itens||[]).map(i=>({...recItem(), ...i})), registrar: novo ? true : false};
