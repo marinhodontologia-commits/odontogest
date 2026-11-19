@@ -494,7 +494,7 @@ function renderProntuario(){
           <label class="f full">Anotação<textarea name="texto" id="notaTexto" data-keep required placeholder="Escolha um modelo acima ou escreva: procedimento realizado, achados clínicos, orientações…"></textarea></label>
           <div class="full" style="display:flex;justify-content:flex-end"><button class="btn primary">Adicionar anotação</button></div>
         </form>
-        ${notas.map(n=>`<div class="evo"><div class="d" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${fmtData(n.data)}${n.dente?' · dente '+esc(n.dente):''}${n.autor?' · por '+esc(n.autor):''}${n.tipo?` <span class="tag">${esc(n.tipo)}</span>`:''}<span style="margin-left:auto;white-space:nowrap"><button class="btn ghost sm" data-printnota="${esc(n.id)}" style="padding:0 4px;color:var(--muted)">imprimir</button>${S.isAdmin?`<button class="btn ghost sm" data-delnota="${esc(n.id)}" style="padding:0 4px;color:var(--muted)">excluir</button>`:''}</span></div><p>${esc(n.texto)}</p></div>`).join('') || '<div class="empty">Nenhuma anotação ainda.</div>'}
+        ${notas.map(n=>`<div class="evo"><div class="d" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${fmtData(n.data)}${n.dente?' · dente '+esc(n.dente):''}${n.autor?' · por '+esc(n.autor):''}${n.tipo?` <span class="tag">${esc(n.tipo)}</span>`:''}${n.editadoEm?` <span class="m" style="color:var(--muted);font-size:11px" title="Editado por ${esc(n.editadoPor||'')}">· editado em ${fmtDataHora(n.editadoEm)}</span>`:''}<span style="margin-left:auto;white-space:nowrap"><button class="btn ghost sm" data-editnota="${esc(n.id)}" style="padding:0 4px;color:var(--muted)">editar</button><button class="btn ghost sm" data-printnota="${esc(n.id)}" style="padding:0 4px;color:var(--muted)">imprimir</button>${S.isAdmin?`<button class="btn ghost sm" data-delnota="${esc(n.id)}" style="padding:0 4px;color:var(--muted)">excluir</button>`:''}</span></div><p>${esc(n.texto)}</p></div>`).join('') || '<div class="empty">Nenhuma anotação ainda.</div>'}
       </div></div>`;
   }
   $('#main').innerHTML = `
@@ -641,7 +641,7 @@ function openPagar(id){
 
 /* ============ events ============ */
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-prontaba],[data-anxfiltro],[data-anxver],[data-anxbaixar],[data-anxdel],[data-termonovo],[data-termover],[data-termodel],[data-termomodelos],[data-agdia],[data-delfin],[data-novatar],[data-tarchk],[data-tared],[data-tarfiltro],[data-recnova],[data-recadd],[data-recrm],[data-recfav],[data-favadd],[data-favdel],[data-recprint],[data-recsave],[data-recprint2],[data-recusar],[data-recopen],[data-recdel],[data-novarec],[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-restproc],[data-restallocultos],[data-resetvrpo],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
+  const el = e.target.closest('[data-editnota],[data-prontaba],[data-anxfiltro],[data-anxver],[data-anxbaixar],[data-anxdel],[data-termonovo],[data-termover],[data-termodel],[data-termomodelos],[data-agdia],[data-delfin],[data-novatar],[data-tarchk],[data-tared],[data-tarfiltro],[data-recnova],[data-recadd],[data-recrm],[data-recfav],[data-favadd],[data-favdel],[data-recprint],[data-recsave],[data-recprint2],[data-recusar],[data-recopen],[data-recdel],[data-novarec],[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-restproc],[data-restallocultos],[data-resetvrpo],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
   if(!el) return;
   const d = el.dataset;
   if(d.act==='abrir' || d.act==='entrar') return go(ROUTES[MODO][0]);
@@ -710,6 +710,7 @@ document.addEventListener('click', async e => {
   if(d.ocultamodelo) return ocultarModelo(d.ocultamodelo);
   if(d.restauramodelo) return restaurarModelo(d.restauramodelo);
   if(d.printnota) return imprimirNota(d.printnota);
+  if(d.editnota) return editarNota(d.editnota);
   if(d.novoacesso!==undefined) return openAcesso();
   if(d.editacesso) return openAcesso(d.editacesso);
   if(d.togacesso) return toggleAcesso(d.togacesso);
@@ -878,6 +879,34 @@ async function restaurarModelo(id){
   S.modelosDb = {...S.modelosDb, [id]:doc};
   openModelos();
   if(await write('clinica', COL.modelos().doc(id), doc)) toast('Modelo restaurado.');
+}
+function editarNota(id){
+  const pid = S.selPac;
+  const n = ((S.prontuarios[pid]||{}).notas||[]).find(x=>x.id===id); if(!n) return;
+  const m = openModal('Editar anotação'+(n.tipo?' — '+n.tipo:''), `<form id="fEditNota" class="fg">
+      <label class="f">Data<input type="date" name="data" value="${esc(n.data||todayISO())}" required></label>
+      <label class="f">Dente (opcional)<input name="dente" value="${esc(n.dente||'')}"></label>
+      <label class="f full">Texto<textarea name="texto" required style="min-height:320px;font-size:13.5px;line-height:1.55">${esc(n.texto)}</textarea></label>
+      <div class="full" style="color:var(--muted);font-size:12px">A versão anterior fica guardada no histórico da anotação.${n.historico&&n.historico.length?` Esta anotação já foi editada ${n.historico.length} vez(es).`:''}</div>
+    </form>`, `<div class="r"><button class="btn" data-close>Cancelar</button><button class="btn" data-save>Salvar</button><button class="btn primary" data-saveprint>Salvar e imprimir</button></div>`);
+  m.querySelector('.mbox').classList.add('wide');
+  const salvar = async imprimir=>{
+    const f = m.querySelector('#fEditNota'); if(!f.reportValidity()) return;
+    const o = formData(f);
+    const doc = prontDoc(pid);
+    const ix = doc.notas.findIndex(x=>x.id===id); if(ix<0){ closeModal(); return toast('Anotação não encontrada.'); }
+    const atual = doc.notas[ix];
+    if(o.texto===atual.texto && o.data===atual.data && (o.dente||'')===(atual.dente||'')){ closeModal(); if(imprimir) imprimirNota(id); return; }
+    const agora = new Date().toISOString();
+    const hist = (atual.historico||[]).concat([{texto:atual.texto, data:atual.data, dente:atual.dente||'', ateEm:agora, por:atual.editadoPor||atual.autor||''}]).slice(-10);
+    doc.notas[ix] = {...atual, texto:o.texto, data:o.data, dente:o.dente||'', editadoEm:agora, editadoPor:S.email, historico:hist};
+    closeModal();
+    await salvarPront(pid, doc);
+    toast('Anotação atualizada.');
+    if(imprimir) imprimirNota(id);
+  };
+  m.querySelector('[data-save]').onclick = ()=>salvar(false);
+  m.querySelector('[data-saveprint]').onclick = ()=>salvar(true);
 }
 function imprimirNota(id){
   const p = S.pacientes.find(x=>x.id===S.selPac) || {};
