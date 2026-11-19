@@ -884,7 +884,7 @@ function imprimirNota(id){
   const n = ((S.prontuarios[S.selPac]||{}).notas||[]).find(x=>x.id===id); if(!n) return;
   let area = document.getElementById('printArea');
   if(!area){ area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
-  const contato = [CLINICA.endereco, CLINICA.telefone].filter(Boolean).join(' · ');
+  const contato = contatoCabecalho();
   area.innerHTML = `<div class="pa-head"><div class="pa-nome">${esc(CLINICA.nome||'Clínica Odontológica')}</div>${contato?`<div class="pa-ct">${esc(contato)}</div>`:''}</div>
     <div class="pa-meta">Paciente: <b>${esc(p.nome||'')}</b>${p.nascimento?' · '+esc(idade(p.nascimento)):''} · ${fmtData(n.data)}${n.dente?' · dente '+esc(n.dente):''}</div>
     <div class="pa-txt">${esc(n.texto)}</div>
@@ -1072,7 +1072,7 @@ function orcImprimir(o){
   const t = orcTotais(o);
   let area = document.getElementById('printArea');
   if(!area){ area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
-  const contato = [CLINICA.endereco, CLINICA.telefone].filter(Boolean).join(' · ');
+  const contato = contatoCabecalho();
   area.innerHTML = `<div class="pa-head"><div class="pa-nome">${esc(CLINICA.nome||'Clínica Odontológica')}</div>${contato?`<div class="pa-ct">${esc(contato)}</div>`:''}</div>
     <div class="pa-titulo">ORÇAMENTO ${o.numero?esc(o.numero):''}</div>
     <div class="pa-meta">Paciente: <b>${esc(o.paciente||'')}</b> · Data: ${fmtData(o.data)} · Válido até ${fmtData(orcValidadeAte(o))}</div>
@@ -1176,14 +1176,23 @@ async function resetarVRPO(){
   tabelaSalvar({}, 'Tabela restaurada para a VRPO 2016.');
 }
 
-/* Impressão sem o endereço do site: a folha é impressa sem margem embaixo (é no rodapé
-   que o navegador coloca o link); o cabeçalho com data e nome da clínica continua.
-   O espaço inferior é recriado por um rodapé de tabela que se repete em cada folha. */
+/* Impressão: cabeçalho da clínica (telefone e Instagram) na primeira folha; endereço e
+   "Página X de Y" no rodapé de todas as folhas, desenhados pelo próprio documento.
+   A margem de baixo é pequena demais para o rodapé do navegador (onde ele põe o link do site). */
+function contatoCabecalho(){
+  const ig = CLINICA.instagram ? 'Instagram ' + (String(CLINICA.instagram).startsWith('@') ? CLINICA.instagram : '@'+CLINICA.instagram) : '';
+  return [CLINICA.telefone, ig].filter(Boolean).join(' · ');
+}
 function imprimirArea(){
   const area = document.getElementById('printArea'); if(!area) return window.print();
   if(!area.querySelector('.rx-pag') && !area.querySelector(':scope > table.pa-pg')){
     area.innerHTML = `<table class="pa-pg"><tbody><tr><td>${area.innerHTML}</td></tr></tbody><tfoot><tr><td><div class="pa-sp"></div></td></tr></tfoot></table>`;
   }
+  const css = s => '"' + String(s||'').replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,' ') + '"';
+  const end = [CLINICA.nome, CLINICA.endereco].filter(Boolean).join(' · ');
+  let st = document.getElementById('printPage');
+  if(!st){ st = document.createElement('style'); st.id = 'printPage'; document.head.appendChild(st); }
+  st.textContent = `@page{ @bottom-left{ content:${css(end)}; font:7.5pt Arial,sans-serif; color:#444; vertical-align:top; padding-top:1mm } @bottom-right{ content:"Página " counter(page) " de " counter(pages); font:7.5pt Arial,sans-serif; color:#444; vertical-align:top; padding-top:1mm } }`;
   const titulo = document.title; document.title = CLINICA.nome || 'Clínica';
   window.print();
   setTimeout(()=>{ document.title = titulo; }, 800);
@@ -1471,7 +1480,7 @@ function termoHtml(t){
 function imprimirTermo(t){
   let area = document.getElementById('printArea');
   if(!area){ area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
-  const contato = [CLINICA.endereco, CLINICA.telefone].filter(Boolean).join(' · ');
+  const contato = contatoCabecalho();
   area.innerHTML = `<div class="pa-head"><div class="pa-nome">${esc(CLINICA.nome||'Clínica Odontológica')}</div>${contato?`<div class="pa-ct">${esc(contato)}</div>`:''}</div><div class="termo-doc">${termoHtml(t)}</div>`;
   document.body.classList.add('print-termo');
   setTimeout(()=>{ imprimirArea(); setTimeout(()=>document.body.classList.remove('print-termo'), 500); }, 80);
@@ -1721,7 +1730,7 @@ async function recSalvar(){
 function recImprimir(r){
   let area = document.getElementById('printArea');
   if(!area){ area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
-  const contato = [CLINICA.endereco, CLINICA.telefone].filter(Boolean).join(' · ');
+  const contato = contatoCabecalho();
   const titulo = r.tipo==='controle' ? 'RECEITUÁRIO DE CONTROLE ESPECIAL' : 'RECEITUÁRIO';
   const vias = r.tipo==='simples' ? [''] : ['1ª via — Farmácia','2ª via — Paciente'];
   let n = 0, uso = null, corpo = '';

@@ -24,6 +24,7 @@ export const CLINICA = {
   nome: "Marinho Odontologia & Estética",
   endereco: "QS 05, Rua 600, Lote 21, Loja 111 — Águas Claras, Brasília/DF",
   telefone: "(61) 99808-0308",
+  instagram: "@clinica.marinho",
   cidade: "Brasília/DF",
   dentista: "Dra. Ruth Marinho",
   cro: "DF 17380"
