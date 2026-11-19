@@ -1176,13 +1176,13 @@ async function resetarVRPO(){
   tabelaSalvar({}, 'Tabela restaurada para a VRPO 2016.');
 }
 
-/* Impressão sem o endereço do site: a página é impressa sem margem em cima e embaixo
-   (assim o navegador não tem onde colocar cabeçalho/rodapé com link, título e data)
-   e o espaço é recriado por uma tabela cujo cabeçalho/rodapé se repetem em cada folha. */
+/* Impressão sem o endereço do site: a folha é impressa sem margem embaixo (é no rodapé
+   que o navegador coloca o link); o cabeçalho com data e nome da clínica continua.
+   O espaço inferior é recriado por um rodapé de tabela que se repete em cada folha. */
 function imprimirArea(){
   const area = document.getElementById('printArea'); if(!area) return window.print();
   if(!area.querySelector('.rx-pag') && !area.querySelector(':scope > table.pa-pg')){
-    area.innerHTML = `<table class="pa-pg"><thead><tr><td><div class="pa-sp"></div></td></tr></thead><tbody><tr><td>${area.innerHTML}</td></tr></tbody><tfoot><tr><td><div class="pa-sp"></div></td></tr></tfoot></table>`;
+    area.innerHTML = `<table class="pa-pg"><tbody><tr><td>${area.innerHTML}</td></tr></tbody><tfoot><tr><td><div class="pa-sp"></div></td></tr></tfoot></table>`;
   }
   const titulo = document.title; document.title = CLINICA.nome || 'Clínica';
   window.print();

@@ -371,7 +371,7 @@ body.sig-on{overflow:hidden}
   .pa-bloco{font-size:10.5pt;margin:6px 0;line-height:1.5}
   .pa-assin2{display:flex;justify-content:space-between;gap:20mm;margin-top:28mm;font-size:10pt;text-align:center}
   .pa-assin2>div{flex:1}
-  .rx-pag{page-break-after:always;break-after:page;height:296mm;box-sizing:border-box;padding:14mm 0 12mm;overflow:hidden;display:flex;flex-direction:column}
+  .rx-pag{page-break-after:always;break-after:page;height:281mm;box-sizing:border-box;padding:0 0 12mm;overflow:hidden;display:flex;flex-direction:column}
   .rx-pag:last-child{page-break-after:auto;break-after:auto}
   .rx-via{text-align:center;font-size:9.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:-4px 0 10px}
   .rx-box{width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:12px}
@@ -393,5 +393,5 @@ body.sig-on{overflow:hidden}
   body.print-termo .termo-doc .td-ass>div{flex:1;text-align:center;font-size:10pt}
   body.print-termo .termo-doc .td-ass img{max-height:24mm;max-width:100%;display:block;margin:0 auto -2mm}
   body.print-termo .termo-doc .td-reg{margin-top:8mm;font-size:8pt;color:#333;border-top:1px dashed #999;padding-top:2mm;word-break:break-all}
-  @page{size:A4;margin:0 15mm}
+  @page{size:A4;margin:15mm 15mm 0}
 }
