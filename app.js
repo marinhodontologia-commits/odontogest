@@ -1,6 +1,7 @@
 import * as CFG from './firebase-config.js';
 import { MODELOS_PADRAO } from './modelos.js';
 import { TABELA_PADRAO, CATEGORIAS, TABELA_FONTE } from './precos.js';
+import { TERMOS_PADRAO } from './termos.js';
 const { FIREBASE_CONFIG, ADMIN_EMAILS } = CFG;
 const CLINICA = CFG.CLINICA || {};
 const MODO = document.body.dataset.modo === 'gestao' ? 'gestao' : 'recepcao';
@@ -75,7 +76,11 @@ const COL = {
   orcamentos: () => S.db.collection('clinica/dados/orcamentos'),
   tarefas: () => S.db.collection('clinica/dados/tarefas'),
   receitas: () => S.db.collection('clinica/dados/receitas'),
-  favmed: () => S.db.collection('clinica/dados/medfav')
+  favmed: () => S.db.collection('clinica/dados/medfav'),
+  anexos: () => S.db.collection('clinica/dados/anexos'),
+  anexosBin: () => S.db.collection('clinica/dados/anexosBin'),
+  termos: () => S.db.collection('clinica/dados/termos'),
+  termosModelos: () => S.db.collection('clinica/dados/termosModelos')
 };
 
 /* ============ UI primitives ============ */
@@ -463,14 +468,17 @@ function renderProntuario(){
   const lista = S.pacientes.slice().sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR'));
   const p = S.pacientes.find(x=>x.id===S.selPac);
   let content = `<div class="card"><div class="empty" style="padding:60px 20px">${S.pacientes.length?'Selecione um paciente para abrir o prontuário.':'Cadastre um paciente no Portal do paciente para iniciar o prontuário.'}</div></div>`;
-  if(p){
+  if(p) assinarPaciente(p.id);
+  if(p && S.prontAba==='imagens') content = prontAbasHtml(p) + renderImagensPac(p);
+  else if(p && S.prontAba==='termos') content = prontAbasHtml(p) + renderTermosPac(p);
+  else if(p){
     const pr = S.prontuarios[p.id] || {};
     const dentes = pr.dentes || {};
     const arch = (rows, up) => `<div class="arch">${rows.map(h=>`<div class="half">${h.map(n=>`<button class="tooth ${up?'up':''} ${String(S.selDente)===String(n)?'sel':''}" data-dente="${n}" title="Dente ${n}: ${esc((DENTE[dentes[n]]||DENTE.higido).l)}">${up?`<small>${n}</small>${toothSvg(dentes[n])}`:`${toothSvg(dentes[n])}<small>${n}</small>`}</button>`).join('')}</div>`).join('')}</div>`;
     const cont = {}; Object.values(dentes).forEach(s=>cont[s]=(cont[s]||0)+1);
     const notas = (pr.notas||[]).slice().sort((a,b)=>String(b.data).localeCompare(String(a.data)) || String(b.criadoEm).localeCompare(String(a.criadoEm)));
     const sd = S.selDente;
-    content = `
+    content = prontAbasHtml(p) + `
       ${p.alergias?`<div class="note"><b>Alerta:</b> ${esc(p.alergias)}</div>`:''}
       <div class="card"><div class="hd"><h3>Odontograma</h3><span style="color:var(--muted);font-size:12px">${sd?`Dente <b>${sd}</b> selecionado — escolha a condição abaixo`:'Clique em um dente para marcar a condição'}</span></div>
         <div class="bd"><div class="odo">${arch(ARCADA_SUP,true)}${arch(ARCADA_INF,false)}</div>
@@ -633,13 +641,22 @@ function openPagar(id){
 
 /* ============ events ============ */
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-agdia],[data-delfin],[data-novatar],[data-tarchk],[data-tared],[data-tarfiltro],[data-recnova],[data-recadd],[data-recrm],[data-recfav],[data-favadd],[data-favdel],[data-recprint],[data-recsave],[data-recprint2],[data-recusar],[data-recopen],[data-recdel],[data-novarec],[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-restproc],[data-restallocultos],[data-resetvrpo],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
+  const el = e.target.closest('[data-prontaba],[data-anxfiltro],[data-anxver],[data-anxbaixar],[data-anxdel],[data-termonovo],[data-termover],[data-termodel],[data-termomodelos],[data-agdia],[data-delfin],[data-novatar],[data-tarchk],[data-tared],[data-tarfiltro],[data-recnova],[data-recadd],[data-recrm],[data-recfav],[data-favadd],[data-favdel],[data-recprint],[data-recsave],[data-recprint2],[data-recusar],[data-recopen],[data-recdel],[data-novarec],[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-restproc],[data-restallocultos],[data-resetvrpo],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
   if(!el) return;
   const d = el.dataset;
   if(d.act==='abrir' || d.act==='entrar') return go(ROUTES[MODO][0]);
   if(d.act==='sair') return sair();
   if(d.act==='esqueci') return esqueci();
   if(d.go) return go(ROUTES[MODO].includes(d.go) ? d.go : ROUTES[MODO][0]);
+  if(d.prontaba){ S.prontAba=d.prontaba; return render(); }
+  if(d.anxfiltro!==undefined){ S.anxFiltro=d.anxfiltro; return render(); }
+  if(d.anxver) return verAnexo(d.anxver);
+  if(d.anxbaixar) return baixarAnexo(d.anxbaixar);
+  if(d.anxdel){ closeModal(); return excluirAnexo(d.anxdel); }
+  if(d.termonovo!==undefined) return novoTermo(S.selPac);
+  if(d.termover) return verTermo(d.termover);
+  if(d.termodel) return excluirTermo(d.termodel);
+  if(d.termomodelos!==undefined) return abrirTermosModelos();
   if(d.agdia){ S.agDate=d.agdia; S.agView='dia'; return render(); }
   if(d.delfin) return excluirLancamento(d.delfin);
   if(d.novatar!==undefined) return openTarefa();
@@ -746,9 +763,11 @@ document.addEventListener('change', e => {
   if(t.id==='agDate' && t.value){ S.agDate=t.value; render(); }
   if(t.id==='agProf'){ S.agProf=t.value; render(); }
   if(t.id==='notaModelo') return inserirModelo(t.value);
-  if(t.id==='prontPac'){ S.selPac=t.value||null; S.selDente=null; render(); }
+  if(t.id==='prontPac'){ S.selPac=t.value||null; S.selDente=null; S.anxFiltro=''; render(); }
   if(t.id==='finMes'){ S.finMes=t.value; render(); }
   if(t.id==='finStatus'){ S.finStatus=t.value; render(); }
+  if(t.id==='anxFile' || t.id==='anxCam'){ const fl=[...t.files]; t.value=''; return anexarArquivos(fl, S.selPac); }
+  if(t.id==='termoFile'){ const fl=[...t.files]; t.value=''; return anexarArquivos(fl, S.selPac, 'termo'); }
   if(t.id==='tarResp'){ S.tarResp=t.value; return render(); }
   if(t.id==='recTipo'){ S.rec.tipo=t.value; recSalvarRascunho(); return render(); }
   if(t.id==='recReg'){ S.rec.registrar=t.checked; recSalvarRascunho(); return; }
@@ -1157,6 +1176,321 @@ async function resetarVRPO(){
   tabelaSalvar({}, 'Tabela restaurada para a VRPO 2016.');
 }
 
+/* ============ PRONTUÁRIO: IMAGENS, TERMOS E ASSINATURA ============ */
+const ANX_CAT = { intraoral:'Foto intraoral', extraoral:'Foto extraoral', periapical:'Radiografia periapical', panoramica:'Radiografia panorâmica', interproximal:'Radiografia interproximal', tomografia:'Tomografia', exame:'Exame / laudo', termo:'Termo assinado (papel)', outro:'Outro' };
+const ANX_CHUNK = 900000;            // caracteres por pedaço (limite de 1 MB por documento no Firestore)
+const ANX_MAX_PDF = 6*1024*1024;     // PDFs até 6 MB
+S.pacSubs = { pid:null, un:[] }; S.anexos = []; S.termos = []; S.termosModelosDb = {};
+S.prontAba = 'evolucao'; S.anxFiltro = '';
+function assinarPaciente(pid){
+  if(S.pacSubs.pid === pid) return;
+  S.pacSubs.un.forEach(f=>{ try{f()}catch(_){} });
+  S.pacSubs = { pid:null, un:[] }; S.anexos = []; S.termos = [];
+  if(!pid || !S.db || !S.role) return;
+  S.pacSubs.pid = pid;
+  S.pacSubs.un.push(COL.anexos().where('pacienteId', pid).onSnapshot(s=>{ S.anexos = s.docs.map(d=>({id:d.id, ...d.data()})); render(); }, ()=>{}));
+  S.pacSubs.un.push(COL.termos().where('pacienteId', pid).onSnapshot(s=>{ S.termos = s.docs.map(d=>({id:d.id, ...d.data()})); render(); }, ()=>{}));
+}
+function listaTermosModelos(incluirOcultos){
+  const out = {};
+  TERMOS_PADRAO.forEach(m=>out[m.id] = {...m, padrao:true});
+  Object.entries(S.termosModelosDb).forEach(([id,m])=>out[id] = {...(out[id]||{}), ...m, id, padrao:!!out[id], alterado:!!out[id]});
+  return Object.values(out).filter(m=>incluirOcultos || !m.oculto).sort((a,b)=>(a.ordem||999)-(b.ordem||999) || String(a.nome).localeCompare(String(b.nome),'pt-BR'));
+}
+function prontAbasHtml(p){
+  const nA = S.anexos.filter(a=>a.categoria!=='termo').length, nT = S.termos.length + S.anexos.filter(a=>a.categoria==='termo').length;
+  return `<div class="seg pront-abas">${[['evolucao','Odontograma e evolução',''],['imagens','Imagens e exames',nA],['termos','Termos e assinaturas',nT]].map(([k,l,n])=>`<button class="${S.prontAba===k?'on':''}" data-prontaba="${k}">${l}${n?` <span class="cnt2">${n}</span>`:''}</button>`).join('')}</div>`;
+}
+/* ---------- imagens e exames ---------- */
+function anxThumb(a){
+  return `<div class="anx" data-anxver="${esc(a.id)}" title="${esc(a.titulo||ANX_CAT[a.categoria]||'')}">
+    <div class="anx-img">${a.thumb?`<img src="${a.thumb}" alt="">`:`<div class="anx-pdf">PDF</div>`}</div>
+    <div class="anx-t">${esc(a.titulo || ANX_CAT[a.categoria] || 'Anexo')}</div>
+    <div class="anx-m">${fmtData(a.data)}${a.dente?' · '+esc(a.dente):''}</div></div>`;
+}
+function renderImagensPac(p){
+  const lista = S.anexos.filter(a=>a.categoria!=='termo' && (!S.anxFiltro || a.categoria===S.anxFiltro)).sort((a,b)=>String(b.data+b.criadoEm).localeCompare(String(a.data+a.criadoEm)));
+  const cats = [...new Set(S.anexos.filter(a=>a.categoria!=='termo').map(a=>a.categoria))];
+  return `<div class="card"><div class="hd"><h3>Imagens e exames</h3><div class="tools">
+      <label class="btn primary">${ICON.plus}Anexar arquivos<input type="file" id="anxFile" accept="image/*,application/pdf" multiple hidden></label>
+      <label class="btn">📷 Tirar foto<input type="file" id="anxCam" accept="image/*" capture="environment" hidden></label></div></div>
+    <div class="bd">
+      ${cats.length>1?`<div class="chips"><button class="${!S.anxFiltro?'on':''}" data-anxfiltro="">Todos</button>${cats.map(c=>`<button class="${S.anxFiltro===c?'on':''}" data-anxfiltro="${c}">${esc(ANX_CAT[c]||c)}</button>`).join('')}</div>`:''}
+      ${lista.length?`<div class="anx-grid">${lista.map(anxThumb).join('')}</div>`:`<div class="empty" style="padding:30px 10px">Nenhuma imagem ainda. Anexe fotos, radiografias, tomografias e laudos (imagens ou PDF).<br><span style="font-size:12px">No tablet ou celular, “Tirar foto” abre a câmera.</span></div>`}
+    </div></div>`;
+}
+function lerArquivo(file, comoDataURL){
+  return new Promise((ok,err)=>{ const r = new FileReader(); r.onload = ()=>ok(r.result); r.onerror = ()=>err(r.error); comoDataURL ? r.readAsDataURL(file) : r.readAsArrayBuffer(file); });
+}
+async function carregarImagem(src){ return new Promise((ok,err)=>{ const i = new Image(); i.onload=()=>ok(i); i.onerror=err; i.src=src; }); }
+function canvasJPEG(img, max, q){
+  const k = Math.min(1, max/Math.max(img.naturalWidth||img.width, img.naturalHeight||img.height));
+  const c = document.createElement('canvas'); c.width = Math.round((img.naturalWidth||img.width)*k); c.height = Math.round((img.naturalHeight||img.height)*k);
+  const x = c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height);
+  return {url:c.toDataURL('image/jpeg', q), w:c.width, h:c.height};
+}
+async function prepararArquivo(file){
+  if(file.type==='application/pdf'){
+    if(file.size > ANX_MAX_PDF) throw new Error(`“${file.name}” tem ${(file.size/1048576).toFixed(1)} MB — o limite para PDF é 6 MB.`);
+    const url = await lerArquivo(file, true);
+    return { mime:'application/pdf', dados:url, thumb:'', w:0, h:0, bytes:file.size };
+  }
+  if(!/^image\//.test(file.type)) throw new Error(`“${file.name}” não é imagem nem PDF.`);
+  const src = await lerArquivo(file, true);
+  const img = await carregarImagem(src);
+  let full = canvasJPEG(img, 2400, .88);
+  if(full.url.length > ANX_CHUNK*4) full = canvasJPEG(img, 1800, .8);
+  const th = canvasJPEG(img, 320, .7);
+  return { mime:'image/jpeg', dados:full.url, thumb:th.url, w:full.w, h:full.h, bytes:Math.round(full.url.length*.75) };
+}
+function anexarArquivos(files, pid, categoriaInicial){
+  files = [...files]; if(!files.length) return;
+  const p = S.pacientes.find(x=>x.id===pid); if(!p) return;
+  const termo = categoriaInicial==='termo';
+  const m = openModal(termo?'Anexar termo assinado':'Anexar '+(files.length>1?files.length+' arquivos':'arquivo'), `
+    <div class="anx-prev">${files.map(f=>`<div class="ap">${/^image\//.test(f.type)?`<img data-prev="${esc(f.name)}" alt="">`:'<div class="anx-pdf">PDF</div>'}<span>${esc(f.name)}</span></div>`).join('')}</div>
+    <form id="fAnx" class="fg" autocomplete="off">
+      <label class="f">Tipo<select name="categoria">${Object.entries(ANX_CAT).map(([k,l])=>`<option value="${k}" ${k===(categoriaInicial||'intraoral')?'selected':''}>${l}</option>`).join('')}</select></label>
+      <label class="f">Data<input type="date" name="data" value="${todayISO()}" required></label>
+      <label class="f">${termo?'Nome do termo':'Título (opcional)'}<input name="titulo" ${termo?'required placeholder="Ex.: Termo de consentimento — exodontia"':'placeholder="Ex.: Inicial, pós-operatório…"'}></label>
+      <label class="f">Dente / região (opcional)<input name="dente" placeholder="Ex.: 36 ou arcada superior"></label>
+      <label class="f full">Observações (opcional)<textarea name="obs" style="min-height:52px"></textarea></label>
+    </form>
+    <div id="anxProg" class="anx-prog"></div>`,
+    `<div class="r"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Salvar no prontuário</button></div>`);
+  files.forEach(f=>{ if(/^image\//.test(f.type)){ const u = URL.createObjectURL(f); const el = [...m.querySelectorAll('img[data-prev]')].find(i=>i.dataset.prev===f.name && !i.src); if(el){ el.src = u; el.onload=()=>URL.revokeObjectURL(u); } } });
+  m.querySelector('[data-save]').onclick = async()=>{
+    const f = m.querySelector('#fAnx'); if(!f.reportValidity()) return;
+    const o = formData(f);
+    const btn = m.querySelector('[data-save]'); btn.disabled = true; m.querySelector('[data-close]').disabled = true;
+    const prog = m.querySelector('#anxProg');
+    let ok = 0, erros = [];
+    for(let i=0; i<files.length; i++){
+      prog.textContent = `Enviando ${i+1} de ${files.length}… não feche esta janela.`;
+      try{
+        const a = await prepararArquivo(files[i]);
+        const ref = COL.anexos().doc();
+        const partes = Math.ceil(a.dados.length / ANX_CHUNK);
+        let falhou = false;
+        for(let k=0; k<partes; k++){
+          if(!await write('clinica', COL.anexosBin().doc(ref.id+'_'+k), {anexoId:ref.id, pacienteId:pid, i:k, d:a.dados.slice(k*ANX_CHUNK,(k+1)*ANX_CHUNK)})){ falhou = true; break; }
+        }
+        if(falhou){ erros.push(files[i].name); continue; }
+        const meta = { pacienteId:pid, paciente:p.nome, categoria:o.categoria, data:o.data, titulo:(o.titulo||'') + (files.length>1 && o.titulo?` (${i+1})`:''), dente:o.dente||'', obs:o.obs||'',
+          nome:files[i].name, mime:a.mime, w:a.w, h:a.h, bytes:a.bytes, partes, thumb:a.thumb, criadoPor:S.email, criadoEm:new Date().toISOString() };
+        if(await write('clinica', ref, meta)) ok++; else erros.push(files[i].name);
+      }catch(e){ erros.push(e && e.message ? e.message : files[i].name); }
+    }
+    closeModal();
+    toast(erros.length ? `${ok} enviado(s). Não foi possível enviar: ${erros.join('; ')}` : `${ok} arquivo(s) salvo(s) no prontuário.`);
+  };
+}
+async function anexoDados(a){
+  if(S.anxCache && S.anxCache[a.id]) return S.anxCache[a.id];
+  const partes = [];
+  for(let k=0; k<(a.partes||1); k++){ const d = await COL.anexosBin().doc(a.id+'_'+k).get(); if(!d.exists) throw new Error('parte '+k+' ausente'); partes.push(d.data().d); }
+  const url = partes.join('');
+  S.anxCache = S.anxCache || {}; S.anxCache[a.id] = url;
+  return url;
+}
+function dataURLparaBlob(u){ const [h,b] = u.split(','); const mime = h.match(/:(.*?);/)[1]; const bin = atob(b); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return new Blob([arr],{type:mime}); }
+async function verAnexo(id){
+  const a = S.anexos.find(x=>x.id===id); if(!a) return;
+  const irmaos = S.anexos.filter(x=>x.categoria===a.categoria || (a.categoria!=='termo' && x.categoria!=='termo' && !S.anxFiltro)).sort((x,y)=>String(y.data+y.criadoEm).localeCompare(String(x.data+x.criadoEm)));
+  const ix = irmaos.findIndex(x=>x.id===id);
+  const m = openModal(a.titulo || ANX_CAT[a.categoria] || 'Anexo', `<div class="viewer" id="anxView"><div class="empty">Carregando…</div></div>
+    <div class="vw-info"><b>${esc(ANX_CAT[a.categoria]||'')}</b> · ${fmtData(a.data)}${a.dente?' · Dente/região: '+esc(a.dente):''}${a.obs?`<div>${esc(a.obs)}</div>`:''}<div class="m">Enviado por ${esc(a.criadoPor||'')} em ${fmtDataHora(a.criadoEm)}</div></div>`,
+    `${irmaos.length>1?`<div class="vw-nav"><button class="btn sm" data-anxver="${esc(irmaos[(ix-1+irmaos.length)%irmaos.length].id)}">‹</button><span>${ix+1}/${irmaos.length}</span><button class="btn sm" data-anxver="${esc(irmaos[(ix+1)%irmaos.length].id)}">›</button></div>`:''}
+     ${S.isAdmin?`<button class="btn danger" data-anxdel="${esc(a.id)}">Excluir</button>`:''}<div class="r"><button class="btn" data-anxbaixar="${esc(a.id)}">Baixar</button><button class="btn" data-close>Fechar</button></div>`);
+  m.querySelector('.mbox').classList.add('wide');
+  try{
+    const url = await anexoDados(a);
+    const box = m.querySelector('#anxView'); if(!box) return;
+    if(a.mime==='application/pdf'){ const bu = URL.createObjectURL(dataURLparaBlob(url)); box.innerHTML = `<iframe src="${bu}" title="PDF"></iframe><a class="btn sm" href="${bu}" target="_blank" rel="noopener" style="margin-top:8px">Abrir PDF em nova aba</a>`; return; }
+    box.innerHTML = `<div class="vw-img"><img id="vwImg" src="${url}" alt=""></div>
+      <div class="vw-ctl"><label>Brilho <input type="range" min="50" max="200" value="100" data-vw="b"></label><label>Contraste <input type="range" min="50" max="250" value="100" data-vw="c"></label>
+        <label class="chk" style="margin:0"><input type="checkbox" data-vw="i"> Inverter</label><button class="btn sm" data-vwzoom>Tamanho real</button><button class="btn sm ghost" data-vwreset>Restaurar</button></div>`;
+    const img = box.querySelector('#vwImg');
+    const ap = ()=>{ const b=box.querySelector('[data-vw=b]').value, c=box.querySelector('[data-vw=c]').value, i=box.querySelector('[data-vw=i]').checked; img.style.filter = `brightness(${b}%) contrast(${c}%)${i?' invert(1)':''}`; };
+    box.querySelectorAll('[data-vw]').forEach(el=>el.addEventListener('input', ap));
+    box.querySelector('[data-vwzoom]').onclick = e=>{ box.querySelector('.vw-img').classList.toggle('real'); e.target.textContent = box.querySelector('.vw-img').classList.contains('real') ? 'Ajustar à tela' : 'Tamanho real'; };
+    box.querySelector('[data-vwreset]').onclick = ()=>{ box.querySelector('[data-vw=b]').value=100; box.querySelector('[data-vw=c]').value=100; box.querySelector('[data-vw=i]').checked=false; ap(); };
+  }catch(e){ const box = m.querySelector('#anxView'); if(box) box.innerHTML = `<div class="empty">Não foi possível carregar o arquivo. Verifique a internet e tente de novo.</div>`; }
+}
+async function baixarAnexo(id){
+  const a = S.anexos.find(x=>x.id===id); if(!a) return;
+  try{ const url = await anexoDados(a); const ext = a.mime==='application/pdf'?'pdf':'jpg';
+    const nome = `${slug(a.paciente)}-${slug(ANX_CAT[a.categoria]||'anexo')}-${a.data}.${ext}`;
+    const bu = URL.createObjectURL(dataURLparaBlob(url)); const l = document.createElement('a'); l.href = bu; l.download = nome; document.body.appendChild(l); l.click(); setTimeout(()=>{URL.revokeObjectURL(bu); l.remove();}, 1500);
+  }catch(_){ toast('Não foi possível baixar o arquivo.'); }
+}
+async function excluirAnexo(id){
+  const a = S.anexos.find(x=>x.id===id); if(!a) return;
+  if(!await confirmBox(`Excluir “${a.titulo || ANX_CAT[a.categoria]}” de ${fmtData(a.data)}? O arquivo será apagado do prontuário.`)) return;
+  if(!await write('clinica', COL.anexos().doc(a.id), null)) return;
+  for(let k=0; k<(a.partes||1); k++) await write('clinica', COL.anexosBin().doc(a.id+'_'+k), null);
+  if(S.anxCache) delete S.anxCache[a.id];
+  toast('Arquivo excluído.');
+}
+/* ---------- termos e assinatura ---------- */
+function renderTermosPac(p){
+  const assinados = S.termos.map(t=>({...t, _tipo:'dig', _ord:t.assinadoEm||t.criadoEm}));
+  const papel = S.anexos.filter(a=>a.categoria==='termo').map(a=>({...a, _tipo:'papel', _ord:(a.data||'')+'T'+(a.criadoEm||'')}));
+  const lista = assinados.concat(papel).sort((a,b)=>String(b._ord).localeCompare(String(a._ord)));
+  return `<div class="card"><div class="hd"><h3>Termos de consentimento e documentos assinados</h3><div class="tools">
+      <button class="btn primary" data-termonovo>✍ Novo termo para assinar</button>
+      <label class="btn">${ICON.plus}Anexar termo em papel<input type="file" id="termoFile" accept="image/*,application/pdf" multiple hidden></label>
+      ${S.isAdmin?`<button class="btn ghost" data-termomodelos>Modelos de termo</button>`:''}</div></div>
+    <div class="bd">${lista.length ? lista.map(t => t._tipo==='dig' ? `
+      <div class="termo"><div class="termo-ic ok">✍</div><div class="termo-b"><b>${esc(t.titulo)}</b>
+        <div class="m">Assinado no tablet por <b>${esc(t.assinante||'')}</b>${t.relacao&&t.relacao!=='Paciente'?' ('+esc(t.relacao)+')':''} em ${fmtDataHora(t.assinadoEm)} · código ${esc(String(t.hash||'').slice(0,12).toUpperCase())}</div></div>
+        <div class="termo-a"><button class="btn sm" data-termover="${esc(t.id)}">Ver / imprimir</button>${S.isAdmin?`<button class="btn sm ghost danger" data-termodel="${esc(t.id)}" title="Excluir">${ICON.trash}</button>`:''}</div></div>` : `
+      <div class="termo"><div class="termo-ic">${t.thumb?`<img src="${t.thumb}" alt="">`:'PDF'}</div><div class="termo-b"><b>${esc(t.titulo||'Termo assinado')}</b>
+        <div class="m">Termo em papel digitalizado · ${fmtData(t.data)} · enviado por ${esc(t.criadoPor||'')}</div></div>
+        <div class="termo-a"><button class="btn sm" data-anxver="${esc(t.id)}">Ver</button></div></div>`).join('')
+      : `<div class="empty" style="padding:30px 10px">Nenhum termo ainda.<br><span style="font-size:12px">Use <b>Novo termo para assinar</b> para o paciente assinar no tablet, ou <b>Anexar termo em papel</b> para guardar a foto/PDF de um termo assinado à mão.</span></div>`}
+    </div></div>`;
+}
+function preencherTermo(txt, p, o){
+  const v = { paciente:p.nome||'__________', cpf:p.cpf||'___.___.___-__', idade:idade(p.nascimento)||'___', procedimento:o.procedimento||'__________', dentes:o.dentes||'___',
+    clinica:CLINICA.nome||'clínica', dentista:CLINICA.dentista||'__________', cro:CLINICA.cro||'______', cidade:CLINICA.cidade||'__________', data_extenso:dataExtenso(todayISO()) };
+  return String(txt||'').replace(/\{\{(\w+)\}\}/g, (m,k)=> k in v ? v[k] : m);
+}
+function novoTermo(pid){
+  const p = S.pacientes.find(x=>x.id===pid); if(!p) return;
+  const mods = listaTermosModelos();
+  const menor = (()=>{ const n = parseISO(p.nascimento||''); if(!p.nascimento || isNaN(n)) return false; const d=new Date(); let a=d.getFullYear()-n.getFullYear(); if(d<new Date(d.getFullYear(), n.getMonth(), n.getDate())) a--; return a<18; })();
+  const m = openModal('Novo termo para assinar', `<form id="fTermo" class="fg" autocomplete="off">
+      <label class="f full">Modelo<select name="modelo">${mods.map(x=>`<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('')}<option value="">— Texto livre —</option></select></label>
+      <label class="f">Procedimento(s)<input name="procedimento" placeholder="Ex.: Exodontia do 38"></label>
+      <label class="f">Dente(s) / região<input name="dentes" placeholder="Ex.: 38"></label>
+      <label class="f full">Texto do termo <span style="font-weight:500;color:var(--muted)">(revise antes de passar o tablet ao paciente)</span><textarea name="texto" id="termoTexto" style="min-height:260px;font-size:13px;line-height:1.5"></textarea></label>
+      <label class="f">Quem vai assinar<select name="relacao"><option ${menor?'':'selected'}>Paciente</option><option ${menor?'selected':''}>Responsável legal</option></select></label>
+      <label class="f">Nome de quem assina<input name="assinante" required value="${esc(menor?'':p.nome)}"></label>
+      <label class="f">CPF de quem assina<input name="doc" value="${esc(menor?'':(p.cpf||''))}" placeholder="Opcional, recomendado"></label>
+      <label class="chk full" style="margin-top:4px"><input type="checkbox" name="prof" checked> Depois do paciente, coletar também a assinatura do(a) profissional</label>
+      ${menor?`<div class="note full" style="margin:0">Paciente menor de idade: quem assina é o responsável legal.</div>`:''}
+    </form>`, `<div class="r"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Coletar assinatura ✍</button></div>`);
+  m.querySelector('.mbox').classList.add('wide');
+  const f = m.querySelector('#fTermo');
+  const atualizar = ()=>{ const md = mods.find(x=>x.id===f.modelo.value); f.texto.value = md ? preencherTermo(md.texto, p, {procedimento:f.procedimento.value, dentes:f.dentes.value}) : (f.texto.value && !f.texto.dataset.auto ? f.texto.value : ''); f.texto.dataset.auto = md?'1':''; };
+  f.modelo.addEventListener('change', atualizar);
+  ['procedimento','dentes'].forEach(n=>f[n].addEventListener('input', ()=>{ if(f.texto.dataset.auto==='1') atualizar(); }));
+  f.texto.addEventListener('input', ()=>{ f.texto.dataset.auto = ''; });
+  f.relacao.addEventListener('change', ()=>{ if(f.relacao.value==='Paciente'){ f.assinante.value = p.nome; f.doc.value = p.cpf||''; } else { f.assinante.value=''; f.doc.value=''; f.assinante.focus(); } });
+  atualizar();
+  m.querySelector('[data-save]').onclick = async()=>{
+    if(!f.reportValidity()) return;
+    const o = formData(f); o.prof = f.prof.checked;
+    if(!String(o.texto||'').trim()) return toast('O termo está sem texto.');
+    const md = mods.find(x=>x.id===o.modelo);
+    const titulo = md ? md.nome : (String(o.texto).trim().split('\n')[0].slice(0,80) || 'Termo');
+    closeModal();
+    const ass = await coletarAssinatura({ titulo, texto:o.texto, nome:o.assinante, papel:o.relacao==='Paciente'?'Paciente':'Responsável legal' });
+    if(!ass) return toast('Assinatura cancelada. Nada foi salvo.');
+    let assProf = null;
+    if(o.prof) assProf = await coletarAssinatura({ titulo, texto:'', nome:CLINICA.dentista||'Profissional', papel:'Profissional', pular:true });
+    const assinadoEm = new Date().toISOString();
+    const base = { pacienteId:pid, paciente:p.nome, modelo:o.modelo||'', titulo, texto:o.texto, relacao:o.relacao, assinante:o.assinante, doc:o.doc||'', assinadoEm };
+    const hash = await sha256(JSON.stringify(base) + '|' + ass);
+    const doc = { ...base, assinatura:ass, assinaturaProf:assProf||'', profissional:assProf?(CLINICA.dentista||''):'', hash, coletadoPor:S.email, dispositivo:navigator.userAgent.slice(0,160), criadoEm:assinadoEm };
+    const ref = COL.termos().doc();
+    if(await write('clinica', ref, doc)){ toast('Termo assinado e salvo no prontuário.'); verTermo(ref.id, {...doc, id:ref.id}); }
+  };
+}
+async function sha256(txt){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+/* Quadro de assinatura em tela cheia (dedo ou caneta). Resolve com a imagem PNG ou null. */
+function coletarAssinatura({titulo, texto, nome, papel, pular}){
+  return new Promise(resolve=>{
+    const ov = document.createElement('div'); ov.className = 'sig-ov';
+    ov.innerHTML = `<div class="sig-box">
+      <div class="sig-hd"><div><b>${esc(titulo)}</b><div class="m">Assinatura: ${esc(papel)} — ${esc(nome)}</div></div><button class="btn ghost" data-sx>Cancelar</button></div>
+      ${texto?`<div class="sig-txt">${esc(texto)}</div><label class="chk sig-li"><input type="checkbox" id="sigLi"> Li e estou de acordo com o termo acima</label>`:''}
+      <div class="sig-area"><canvas></canvas><div class="sig-linha"></div><div class="sig-ph">Assine aqui com o dedo ou a caneta</div></div>
+      <div class="sig-ft"><span class="m">${esc(nome)}</span><div class="r">${pular?'<button class="btn" data-sp>Pular</button>':''}<button class="btn" data-sl>Limpar</button><button class="btn primary" data-sok disabled>Confirmar assinatura</button></div></div>
+    </div>`;
+    document.body.appendChild(ov); document.body.classList.add('sig-on');
+    const cv = ov.querySelector('canvas'), area = ov.querySelector('.sig-area'), ok = ov.querySelector('[data-sok]'), li = ov.querySelector('#sigLi');
+    const ctx = cv.getContext('2d'); let tracos = 0, desenhando = false, ult = null;
+    const dim = ()=>{ const r = area.getBoundingClientRect(), dpr = window.devicePixelRatio||1; const img = tracos ? cv.toDataURL() : null;
+      cv.width = r.width*dpr; cv.height = r.height*dpr; cv.style.width = r.width+'px'; cv.style.height = r.height+'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0b1f4d';
+      if(img){ const i=new Image(); i.onload=()=>ctx.drawImage(i,0,0,r.width,r.height); i.src=img; } };
+    dim(); window.addEventListener('resize', dim);
+    const pos = e=>{ const r = cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top, p:e.pressure||.5}; };
+    const pode = ()=>{ ok.disabled = !(tracos>0 && (!li || li.checked)); };
+    li && li.addEventListener('change', pode);
+    cv.addEventListener('pointerdown', e=>{ e.preventDefault(); cv.setPointerCapture(e.pointerId); desenhando = true; ult = pos(e); ov.querySelector('.sig-ph').style.display='none'; ctx.beginPath(); ctx.arc(ult.x, ult.y, 1.2, 0, Math.PI*2); ctx.fillStyle='#0b1f4d'; ctx.fill(); });
+    cv.addEventListener('pointermove', e=>{ if(!desenhando) return; e.preventDefault(); const pt = pos(e);
+      ctx.lineWidth = e.pointerType==='pen' ? 1.2+pt.p*2.6 : 2.6; ctx.beginPath(); ctx.moveTo(ult.x, ult.y);
+      const mx=(ult.x+pt.x)/2, my=(ult.y+pt.y)/2; ctx.quadraticCurveTo(ult.x, ult.y, mx, my); ctx.lineTo(pt.x, pt.y); ctx.stroke(); ult = pt; });
+    const fim = ()=>{ if(desenhando){ desenhando=false; tracos++; pode(); } };
+    cv.addEventListener('pointerup', fim); cv.addEventListener('pointercancel', fim); cv.addEventListener('pointerleave', fim);
+    const fechar = v=>{ window.removeEventListener('resize', dim); ov.remove(); document.body.classList.remove('sig-on'); resolve(v); };
+    ov.querySelector('[data-sx]').onclick = ()=>fechar(null);
+    ov.querySelector('[data-sp]') && (ov.querySelector('[data-sp]').onclick = ()=>fechar(null));
+    ov.querySelector('[data-sl]').onclick = ()=>{ ctx.clearRect(0,0,cv.width,cv.height); tracos=0; pode(); ov.querySelector('.sig-ph').style.display=''; };
+    ok.onclick = ()=>{
+      // recorta as bordas em branco e devolve PNG transparente
+      const w=cv.width, h=cv.height, d=ctx.getImageData(0,0,w,h).data; let x0=w,y0=h,x1=0,y1=0;
+      for(let y=0;y<h;y+=2) for(let x=0;x<w;x+=2){ if(d[(y*w+x)*4+3]>10){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+      const pad=12; x0=Math.max(0,x0-pad); y0=Math.max(0,y0-pad); x1=Math.min(w,x1+pad); y1=Math.min(h,y1+pad);
+      const k = Math.min(1, 900/(x1-x0)); const o = document.createElement('canvas'); o.width=Math.max(1,Math.round((x1-x0)*k)); o.height=Math.max(1,Math.round((y1-y0)*k));
+      o.getContext('2d').drawImage(cv, x0,y0,x1-x0,y1-y0, 0,0,o.width,o.height);
+      fechar(o.toDataURL('image/png'));
+    };
+  });
+}
+function verTermo(id, dado){
+  const t = dado || S.termos.find(x=>x.id===id); if(!t) return;
+  const m = openModal(t.titulo, `<div class="termo-doc">${termoHtml(t)}</div>`,
+    `<div class="r"><button class="btn" data-close>Fechar</button><button class="btn primary" data-termoprint="${esc(t.id)}">Imprimir / PDF</button></div>`);
+  m.querySelector('.mbox').classList.add('wide');
+  m.querySelector('[data-termoprint]').onclick = ()=>imprimirTermo(t);
+}
+function termoHtml(t){
+  return `<div class="td-texto">${esc(t.texto)}</div>
+    <div class="td-ass">
+      <div><img src="${t.assinatura}" alt="Assinatura"><div class="pa-linha"></div><b>${esc(t.assinante)}</b><br>${esc(t.relacao||'Paciente')}${t.doc?' · CPF '+esc(t.doc):''}${t.relacao&&t.relacao!=='Paciente'?'<br>Paciente: '+esc(t.paciente):''}</div>
+      <div>${t.assinaturaProf?`<img src="${t.assinaturaProf}" alt="Assinatura do profissional">`:'<div style="height:70px"></div>'}<div class="pa-linha"></div><b>${esc(t.profissional||CLINICA.dentista||'Profissional')}</b><br>${CLINICA.cro?'CRO '+esc(CLINICA.cro):'Cirurgião(ã)-dentista'}</div>
+    </div>
+    <div class="td-reg">Documento assinado eletronicamente em ${fmtDataHora(t.assinadoEm)} por ${esc(t.assinante)}${t.doc?' (CPF '+esc(t.doc)+')':''}, coletado por ${esc(t.coletadoPor||'')} no sistema OdontoGest. Código de verificação (SHA-256): ${esc(String(t.hash||'').toUpperCase())}</div>`;
+}
+function imprimirTermo(t){
+  let area = document.getElementById('printArea');
+  if(!area){ area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
+  const contato = [CLINICA.endereco, CLINICA.telefone].filter(Boolean).join(' · ');
+  area.innerHTML = `<div class="pa-head"><div class="pa-nome">${esc(CLINICA.nome||'Clínica Odontológica')}</div>${contato?`<div class="pa-ct">${esc(contato)}</div>`:''}</div><div class="termo-doc">${termoHtml(t)}</div>`;
+  document.body.classList.add('print-termo');
+  setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-termo'), 500); }, 80);
+}
+async function excluirTermo(id){
+  const t = S.termos.find(x=>x.id===id); if(!t) return;
+  if(!await confirmBox(`Excluir o termo “${t.titulo}” assinado por ${t.assinante} em ${fmtDataHora(t.assinadoEm)}? Essa ação não pode ser desfeita.`)) return;
+  if(await write('clinica', COL.termos().doc(id), null)) toast('Termo excluído.');
+}
+function abrirTermosModelos(){
+  const l = listaTermosModelos(true);
+  const m = openModal('Modelos de termo', `<p style="margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5">Os modelos que vêm no sistema são um ponto de partida — revise o texto com a responsável técnica. Campos automáticos: <code>{{paciente}}</code> <code>{{cpf}}</code> <code>{{idade}}</code> <code>{{procedimento}}</code> <code>{{dentes}}</code> <code>{{clinica}}</code> <code>{{dentista}}</code> <code>{{cro}}</code> <code>{{cidade}}</code> <code>{{data_extenso}}</code>.</p>
+    <div class="parc-l">${l.map(x=>`<div class="parc" style="cursor:default"><span class="pd"><b>${esc(x.nome)}</b><small>${x.oculto?'Oculto':x.alterado?'Editado pela clínica':x.padrao?'Modelo do sistema':'Criado pela clínica'}</small></span><button class="btn sm" data-tmedit="${esc(x.id)}">Editar</button><button class="btn sm ghost" data-tmoc="${esc(x.id)}">${x.oculto?'Mostrar':'Ocultar'}</button></div>`).join('')}</div>`,
+    `<button class="btn" data-tmnovo>${ICON.plus}Novo modelo</button><div class="r"><button class="btn" data-close>Fechar</button></div>`);
+  m.querySelector('[data-tmnovo]').onclick = ()=>editarTermoModelo(null);
+  m.querySelectorAll('[data-tmedit]').forEach(b=>b.onclick=()=>editarTermoModelo(b.dataset.tmedit));
+  m.querySelectorAll('[data-tmoc]').forEach(b=>b.onclick=async()=>{ const x = l.find(y=>y.id===b.dataset.tmoc); const atual = S.termosModelosDb[x.id]||{};
+    if(await write('clinica', COL.termosModelos().doc(x.id), {...atual, ...(x.padrao?{}:{nome:x.nome, texto:x.texto, ordem:x.ordem||99}), oculto:!x.oculto})){ S.termosModelosDb[x.id] = {...atual, oculto:!x.oculto}; abrirTermosModelos(); } });
+}
+function editarTermoModelo(id){
+  const x = id ? listaTermosModelos(true).find(y=>y.id===id) : {nome:'', texto:'', ordem:99};
+  const m = openModal(id?'Editar modelo de termo':'Novo modelo de termo', `<form id="fTM" class="fg"><label class="f full">Nome<input name="nome" required value="${esc(x.nome)}"></label>
+    <label class="f full">Texto<textarea name="texto" required style="min-height:340px;font-size:13px;line-height:1.5">${esc(x.texto)}</textarea></label></form>`,
+    `${id && x.padrao && x.alterado?'<button class="btn ghost" data-tmrest>Voltar ao texto original</button>':''}<div class="r"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Salvar</button></div>`);
+  m.querySelector('.mbox').classList.add('wide');
+  m.querySelector('[data-save]').onclick = async()=>{ const f = m.querySelector('#fTM'); if(!f.reportValidity()) return; const o = formData(f);
+    const tid = id || ('tc'+Date.now().toString(36)); const doc = {...(S.termosModelosDb[tid]||{}), nome:o.nome, texto:o.texto, ordem:x.ordem||99, oculto:!!x.oculto};
+    if(await write('clinica', COL.termosModelos().doc(tid), doc)){ S.termosModelosDb[tid] = doc; toast('Modelo salvo.'); abrirTermosModelos(); } };
+  m.querySelector('[data-tmrest]') && (m.querySelector('[data-tmrest]').onclick = async()=>{ if(await write('clinica', COL.termosModelos().doc(id), null)){ delete S.termosModelosDb[id]; toast('Modelo restaurado.'); abrirTermosModelos(); } });
+}
+
 /* ============ TAREFAS ============ */
 const TAR_PRIO = { alta:'Alta', normal:'Normal', baixa:'Baixa' };
 function tarStatus(t){ if(t.feita) return 'feita'; if(!t.prazo) return 'semprazo'; const h=todayISO(); return t.prazo<h?'atrasada':t.prazo===h?'hoje':'proxima'; }
@@ -1502,7 +1836,7 @@ async function delAcesso(id){
 
 /* ============ boot (Firebase) ============ */
 let dataSubs = [];
-function pararDados(){ dataSubs.forEach(f=>{ try{f()}catch(_){} }); dataSubs=[]; S.agenda=[]; S.pacientes=[]; S.prontuarios={}; S.fin=[]; S.acessos=[]; S.modelosDb={}; S.tabelaDb={}; S.orcamentos=[]; S.tarefas=[]; S.receitas=[]; S.favMed=[]; }
+function pararDados(){ dataSubs.forEach(f=>{ try{f()}catch(_){} }); dataSubs=[]; S.agenda=[]; S.pacientes=[]; S.prontuarios={}; S.fin=[]; S.acessos=[]; S.modelosDb={}; S.tabelaDb={}; S.orcamentos=[]; S.tarefas=[]; S.receitas=[]; S.favMed=[]; S.termosModelosDb={}; assinarPaciente(null); S.anxCache={}; }
 function aplicarPapel(role){
   if(role === S.role && (dataSubs.length || !role)) { render(); return; }
   pararDados(); S.role = role; S.sync = 'wait';
@@ -1517,6 +1851,7 @@ function aplicarPapel(role){
     sub(COL.tarefas(), s=>{ S.tarefas = s.docs.map(d=>({id:d.id, ...d.data()})); });
     sub(COL.receitas(), s=>{ S.receitas = s.docs.map(d=>({id:d.id, ...d.data()})); });
     sub(COL.favmed(), s=>{ S.favMed = s.docs.map(d=>({id:d.id, ...d.data()})); });
+    sub(COL.termosModelos(), s=>{ S.termosModelosDb = Object.fromEntries(s.docs.map(d=>[d.id, d.data()])); });
     dataSubs.push(COL.tabela().doc('precos').onSnapshot(d=>{ S.tabelaDb = d.exists ? (d.data()||{}) : {}; render(); }, ()=>{}));
     if(role==='admin'){
       sub(COL.fin(), s=>{ S.fin = s.docs.map(d=>({id:d.id, ...d.data()})); });
@@ -1543,7 +1878,9 @@ render();
     return { path,
       doc(id){ const r = id ? fs.doc(c, id) : fs.doc(c);
         return { id:r.id, path:r.path, set:d=>fs.setDoc(r,d), delete:()=>fs.deleteDoc(r),
+          get:async()=>{ const s = await fs.getDoc(r); return {exists:s.exists(), data:()=>s.data()}; },
           onSnapshot:(next, err)=>fs.onSnapshot(r, s=>next({exists:s.exists(), data:()=>s.data()}), err) }; },
+      where(campo, valor){ const q = fs.query(c, fs.where(campo, '==', valor)); return { onSnapshot:(next, err)=>fs.onSnapshot(q, s=>next(wrapSnap(s)), err) }; },
       onSnapshot(next, err){ return fs.onSnapshot(c, s=>next(wrapSnap(s)), err); }
     };
   }};

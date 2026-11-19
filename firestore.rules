@@ -47,6 +47,11 @@ service cloud.firestore {
       allow read: if isEquipe();
       allow write: if isAdmin();
     }
+    // MODELOS DE TERMO: equipe usa; só a administração edita.
+    match /clinica/dados/termosModelos/{id} {
+      allow read: if isEquipe();
+      allow write: if isAdmin();
+    }
     // TAREFAS E MEDICAMENTOS FAVORITOS: toda a equipe cria, edita e exclui.
     match /clinica/dados/tarefas/{id} {
       allow read, write: if isEquipe();
@@ -54,10 +59,15 @@ service cloud.firestore {
     match /clinica/dados/medfav/{id} {
       allow read, write: if isEquipe();
     }
-    // PACIENTES, PRONTUÁRIOS, MODELOS, ORÇAMENTOS E RECEITAS: equipe lê, cadastra e edita; só a administração exclui.
+    // TERMOS ASSINADOS: equipe lê e cria; ninguém altera depois de assinado; só a administração exclui.
+    match /clinica/dados/termos/{id} {
+      allow read, create: if isEquipe();
+      allow delete: if isAdmin();
+    }
+    // PACIENTES, PRONTUÁRIOS, MODELOS, ORÇAMENTOS, RECEITAS E ANEXOS: equipe lê, cadastra e edita; só a administração exclui.
     match /clinica/dados/{colecao}/{id} {
       allow read: if isEquipe();
-      allow create, update: if isEquipe() && colecao != 'tabela';
+      allow create, update: if isEquipe() && !(colecao in ['tabela', 'termos', 'termosModelos']);
       allow delete: if isAdmin();
     }
 
