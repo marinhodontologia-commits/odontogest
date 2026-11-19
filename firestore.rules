@@ -47,7 +47,14 @@ service cloud.firestore {
       allow read: if isEquipe();
       allow write: if isAdmin();
     }
-    // PACIENTES, PRONTUÁRIOS, MODELOS E ORÇAMENTOS: equipe lê, cadastra e edita; só a administração exclui.
+    // TAREFAS E MEDICAMENTOS FAVORITOS: toda a equipe cria, edita e exclui.
+    match /clinica/dados/tarefas/{id} {
+      allow read, write: if isEquipe();
+    }
+    match /clinica/dados/medfav/{id} {
+      allow read, write: if isEquipe();
+    }
+    // PACIENTES, PRONTUÁRIOS, MODELOS, ORÇAMENTOS E RECEITAS: equipe lê, cadastra e edita; só a administração exclui.
     match /clinica/dados/{colecao}/{id} {
       allow read: if isEquipe();
       allow create, update: if isEquipe() && colecao != 'tabela';
