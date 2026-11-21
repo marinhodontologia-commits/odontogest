@@ -37,4 +37,4 @@ export const ADMIN_EMAILS = [
 
 // Integração com o Asaas (boleto / Pix): URL do "App da Web" do script
 // asaas.gs (termina em /exec). Deixe vazio para esconder os botões de boleto.
-export const ASAAS_URL = "";
+export const ASAAS_URL = "https://script.google.com/macros/s/AKfycbzFbOWg6lXtj544-2uVY8OBAtOREXKnDvuWMpzYp5NTUgHCcd27OOAMUfpdle05Xm5E4w/exec";

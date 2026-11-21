@@ -1,4 +1,4 @@
-import * as CFG from './firebase-config.js?v=20261120a';
+import * as CFG from './firebase-config.js?v=20261120b';
 import { MODELOS_PADRAO } from './modelos.js';
 import { TABELA_PADRAO, CATEGORIAS, TABELA_FONTE } from './precos.js';
 import { TERMOS_PADRAO } from './termos.js';
