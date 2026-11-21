@@ -34,3 +34,7 @@ export const CLINICA = {
 export const ADMIN_EMAILS = [
   "marinhodontologia@gmail.com"
 ];
+
+// Integração com o Asaas (boleto / Pix): URL do "App da Web" do script
+// asaas.gs (termina em /exec). Deixe vazio para esconder os botões de boleto.
+export const ASAAS_URL = "";

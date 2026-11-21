@@ -395,3 +395,4 @@ body.sig-on{overflow:hidden}
   body.print-termo .termo-doc .td-reg{margin-top:8mm;font-size:8pt;color:#333;border-top:1px dashed #999;padding-top:2mm;word-break:break-all}
   @page{size:A4;margin:15mm 15mm 5mm}
 }
+a.btn{text-decoration:none}

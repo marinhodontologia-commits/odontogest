@@ -1,4 +1,4 @@
-import * as CFG from './firebase-config.js';
+import * as CFG from './firebase-config.js?v=20261120a';
 import { MODELOS_PADRAO } from './modelos.js';
 import { TABELA_PADRAO, CATEGORIAS, TABELA_FONTE } from './precos.js';
 import { TERMOS_PADRAO } from './termos.js';
@@ -536,11 +536,12 @@ function renderFinanceiro(){
       <thead><tr><th>Paciente</th><th>Descrição</th><th>Vencimento</th><th>Forma</th><th>Status</th><th class="num">Valor</th><th></th></tr></thead>
       <tbody>${lista.map(l=>{ const s=finStatus(l); return `<tr>
         <td><b>${esc(l.paciente||'—')}</b></td><td>${esc(l.descricao||'')}</td><td>${fmtData(l.vencimento)}</td><td>${esc(l.forma||'—')}</td>
-        <td><span class="st st-${s}">${{pago:'Pago',pendente:'Pendente',vencido:'Vencido'}[s]}</span>${s==='pago'&&l.pagoEm?`<div class="m" style="font-size:11px;color:var(--muted)">em ${fmtData(l.pagoEm)}</div>`:''}</td>
+        <td><span class="st st-${s}">${{pago:'Pago',pendente:'Pendente',vencido:'Vencido'}[s]}</span>${l.asaas&&l.asaas.id&&s!=='pago'?`<div class="m" style="font-size:11px;color:var(--muted)">${esc(ASAAS_ST[l.asaas.status]||'Boleto emitido')}</div>`:''}${s==='pago'&&l.pagoEm?`<div class="m" style="font-size:11px;color:var(--muted)">em ${fmtData(l.pagoEm)}</div>`:''}</td>
         <td class="num"><b>${BRL(l.valor)}</b></td>
         <td style="white-space:nowrap;text-align:right">${finBotoes(l)}</td></tr>`; }).join('')
         || `<tr><td colspan="7"><div class="empty">${S.fin.length?'Nenhum lançamento neste filtro.':'Nenhum lançamento ainda. Clique em “Nova cobrança”.'}</div></td></tr>`}</tbody>
     </table></div></div>`;
+  asaasAtualizar(false);
 }
 function openFin(id, pacId){
   const l = id ? S.fin.find(x=>x.id===id) : {pacienteId:pacId||'', status:'pendente', vencimento:todayISO()};
@@ -581,7 +582,8 @@ function openFin(id, pacId){
   f.addEventListener('submit', e=>{e.preventDefault(); save();});
   m.querySelector('[data-save]').onclick = save;
   m.querySelector('[data-del]')?.addEventListener('click', async()=>{
-    if(!await confirmBox(`Excluir o lançamento “${l.descricao}” de ${BRL(l.valor)}?`)) return;
+    if(!await confirmBox(`Excluir o lançamento “${l.descricao}” de ${BRL(l.valor)}${asaasAberta(l)?'? O boleto emitido no Asaas também será cancelado':''}?`)) return;
+    if(!await asaasCancelarDe([l])) return;
     if(await write('adm', COL.fin().doc(id), null)) toast('Lançamento excluído.');
   });
   m.querySelector('[data-delparc]')?.addEventListener('click', ()=>excluirParcelas(id));
@@ -598,13 +600,15 @@ function parcelasDe(l){
 }
 function finBotoes(l){
   const s = finStatus(l);
-  return `${s!=='pago'?`<button class="btn sm" data-pagar="${esc(l.id)}">Receber</button> `:''}<button class="btn sm ghost" data-editfin="${esc(l.id)}">Editar</button><button class="btn sm ghost danger" data-delfin="${esc(l.id)}" title="Excluir lançamento" aria-label="Excluir lançamento">${ICON.trash}</button>`;
+  const bol = ASAAS_URL ? (l.asaas&&l.asaas.id ? `<button class="btn sm ghost" data-cobver="${esc(l.id)}" title="Ver / enviar boleto">${s==='pago'?'Recibo':'Boleto'}</button>` : (s!=='pago'?`<button class="btn sm ghost" data-cobgerar="${esc(l.id)}" title="Gerar boleto/Pix no Asaas">Gerar boleto</button>`:'')) : '';
+  return `${bol}${s!=='pago'?`<button class="btn sm" data-pagar="${esc(l.id)}">Receber</button> `:''}<button class="btn sm ghost" data-editfin="${esc(l.id)}">Editar</button><button class="btn sm ghost danger" data-delfin="${esc(l.id)}" title="Excluir lançamento" aria-label="Excluir lançamento">${ICON.trash}</button>`;
 }
 async function excluirLancamento(id){
   const l = S.fin.find(x=>x.id===id); if(!l) return;
   const grupo = parcelasDe(l);
   if(grupo.length>1) return excluirParcelas(id);
-  if(!await confirmBox(`Excluir o lançamento “${l.descricao}” de ${BRL(l.valor)}${l.status==='pago'?' (já recebido)':''}?`)) return;
+  if(!await confirmBox(`Excluir o lançamento “${l.descricao}” de ${BRL(l.valor)}${l.status==='pago'?' (já recebido)':''}${asaasAberta(l)?'? O boleto emitido no Asaas também será cancelado':''}?`)) return;
+  if(!await asaasCancelarDe([l])) return;
   if(await write('adm', COL.fin().doc(id), null)) toast('Lançamento excluído.');
 }
 function excluirParcelas(id){
@@ -622,6 +626,7 @@ function excluirParcelas(id){
     const ids = sel(); if(!ids.length) return toast('Marque pelo menos uma parcela.');
     const pagas = grupo.filter(x=>ids.includes(x.id) && x.status==='pago').length;
     if(!await confirmBox(`Excluir ${ids.length} parcela(s)${pagas?` — incluindo ${pagas} já recebida(s)`:''}? Essa ação não pode ser desfeita.`)) return excluirParcelas(id);
+    if(!await asaasCancelarDe(grupo.filter(x=>ids.includes(x.id)))) return;
     let ok = 0; for(const pid of ids){ if(await write('adm', COL.fin().doc(pid), null)) ok++; }
     toast(ok===ids.length ? `${ok} parcela(s) excluída(s).` : `${ok} de ${ids.length} parcela(s) excluída(s). Tente de novo as restantes.`);
   };
@@ -635,13 +640,139 @@ function openPagar(id){
   m.querySelector('[data-save]').onclick = async()=>{
     const f=m.querySelector('#fPag'); if(!f.reportValidity()) return;
     const o=formData(f); closeModal();
-    if(await write('adm', COL.fin().doc(id), {...stripId(l), ...o, status:'pago'})) toast('Recebimento registrado.');
+    const extra = {};
+    if(asaasAberta(l)){
+      try{ const r = await asaas('receberEmDinheiro', {id:l.asaas.id, data:o.pagoEm, valor:l.valor}); extra.asaas = {...l.asaas, status:r.cobranca.status}; }
+      catch(e){ toast('Recebimento registrado aqui, mas não consegui dar baixa no Asaas: '+e.message+' Cancele o boleto lá para o paciente não pagar em dobro.'); }
+    }
+    if(await write('adm', COL.fin().doc(id), {...stripId(l), ...o, ...extra, status:'pago'})) toast('Recebimento registrado.');
   };
+}
+
+
+/* ============ Asaas: boleto / Pix ============ */
+const ASAAS_URL = String(CFG.ASAAS_URL||'').trim();
+const ASAAS_ST = { PENDING:'Boleto aguardando pagamento', OVERDUE:'Boleto vencido', RECEIVED:'Pago pelo Asaas', CONFIRMED:'Pago pelo Asaas', RECEIVED_IN_CASH:'Baixado no Asaas', REFUNDED:'Estornado', REFUND_REQUESTED:'Estorno solicitado', DELETED:'Boleto cancelado' };
+const ASAAS_PAGO = ['RECEIVED','CONFIRMED','RECEIVED_IN_CASH'];
+const ASAAS_TIPO = { BOLETO:'Boleto', PIX:'Pix', CREDIT_CARD:'Cartão de crédito', UNDEFINED:'Boleto' };
+async function asaas(acao, dados={}){
+  if(!ASAAS_URL) throw new Error('A integração com o Asaas ainda não foi configurada.');
+  if(!S.auth || !S.auth.currentUser) throw new Error('Faça login novamente.');
+  const idToken = await S.auth.currentUser.getIdToken();
+  let j;
+  try{
+    const r = await fetch(ASAAS_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({acao, idToken, ...dados}) });
+    j = await r.json();
+  }catch(_){ throw new Error('Sem resposta do Asaas. Verifique a internet e tente de novo.'); }
+  if(!j.ok) throw new Error(j.erro || 'Falha na comunicação com o Asaas.');
+  return j;
+}
+function asaasAberta(l){ return !!(l && l.asaas && l.asaas.id && !l.asaas.excluida && !ASAAS_PAGO.includes(l.asaas.status) && l.asaas.status!=='DELETED'); }
+async function asaasCancelarDe(lista){
+  const abertas = lista.filter(asaasAberta); let falhas = 0;
+  for(const l of abertas){ try{ await asaas('cancelar', {id:l.asaas.id}); }catch(e){ falhas++; } }
+  if(falhas){ return await confirmBox(`Não consegui cancelar ${falhas} boleto(s) no Asaas. Excluir mesmo assim? (Cancele-os depois direto no Asaas para o paciente não pagar.)`, 'Excluir mesmo assim'); }
+  return true;
+}
+function asaasDadosCob(l, pac, o){
+  return { lancamentoId:l.id, valor:l.valor, vencimento:l.vencimento, descricao:`${CLINICA.nome||'Clínica'} — ${l.descricao||'Tratamento odontológico'}`, tipo:o.tipo,
+    cliente:{ nome:pac.nome, cpf:o.cpf, email:o.email, telefone:o.telefone, endereco:pac.endereco||'', pacienteId:pac.id } };
+}
+function asaasGerar(id){
+  const l = S.fin.find(x=>x.id===id); if(!l) return;
+  const pac = S.pacientes.find(p=>p.id===l.pacienteId) || {nome:l.paciente};
+  const outras = parcelasDe(l).filter(x=>x.id!==l.id && finStatus(x)!=='pago' && !(x.asaas&&x.asaas.id));
+  const m = openModal('Gerar boleto / Pix', `<p style="margin:0 0 12px;line-height:1.5"><b>${esc(l.paciente||'')}</b> — ${esc(l.descricao||'')}<br>Valor <b>${BRL(l.valor)}</b> · vence ${fmtData(l.vencimento)}${l.vencimento<todayISO()?' <span style="color:#b45309">(já vencido: o boleto sai com vencimento hoje)</span>':''}</p>
+    <form id="fCob" class="fg">
+      <label class="f">CPF do pagador<input name="cpf" required value="${esc(pac.cpf||'')}" placeholder="000.000.000-00" inputmode="numeric"></label>
+      <label class="f">Forma<select name="tipo"><option value="BOLETO">Boleto (com QR Code Pix)</option><option value="PIX">Somente Pix</option><option value="UNDEFINED">Paciente escolhe (boleto, Pix ou cartão)</option></select></label>
+      <label class="f">WhatsApp / celular<input name="telefone" value="${esc(pac.telefone||'')}"></label>
+      <label class="f">E-mail (o Asaas envia o boleto)<input type="email" name="email" value="${esc(pac.email||'')}"></label>
+      ${outras.length?`<label class="f full" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="todas" checked style="width:auto"> Gerar também as outras ${outras.length} parcela(s) em aberto (${BRL(outras.reduce((s,x)=>s+(+x.valor||0),0))})</label>`:''}
+    </form>
+    <p style="margin:10px 0 0;font-size:12px;color:var(--muted)">O Asaas cobra a tarifa só quando o boleto é pago. Valor mínimo: R$ 5,00.</p>`,
+    `<div class="r"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Gerar</button></div>`);
+  m.querySelector('[data-save]').onclick = async()=>{
+    const f = m.querySelector('#fCob'); if(!f.reportValidity()) return;
+    const o = formData(f); const cpf = digits(o.cpf);
+    if(cpf.length!==11 && cpf.length!==14) return toast('Confira o CPF: precisa ter 11 dígitos.');
+    const btn = m.querySelector('[data-save]'); btn.disabled = true; btn.textContent = 'Gerando…';
+    if(pac.id && (digits(pac.cpf)!==cpf || (o.email && !pac.email) || (o.telefone && !pac.telefone))){
+      await write('clinica', COL.pacientes().doc(pac.id), {...stripId(pac), cpf: pac.cpf && digits(pac.cpf)===cpf ? pac.cpf : o.cpf, email: pac.email||o.email, telefone: pac.telefone||o.telefone});
+    }
+    const lista = [l, ...(o.todas ? outras : [])];
+    let ok = 0, erro = '';
+    for(const x of lista){
+      try{
+        const r = await asaas('cobrar', asaasDadosCob(x, {...pac, cpf}, {...o, cpf}));
+        const c = r.cobranca;
+        if(await write('adm', COL.fin().doc(x.id), {...stripId(x), forma: ASAAS_TIPO[c.tipo]||'Boleto', asaas:{ id:c.id, status:c.status, link:c.link, boleto:c.boleto, tipo:c.tipo, vencimento:c.vencimento, criadoEm:new Date().toISOString() }})) ok++;
+      }catch(e){ erro = e.message; break; }
+    }
+    closeModal();
+    if(erro && !ok) return openModal('Não foi possível gerar', `<p style="margin:0;line-height:1.5">${esc(erro)}</p>`, '<div class="r"><button class="btn" data-close>Fechar</button></div>');
+    toast(erro ? `${ok} de ${lista.length} cobrança(s) geradas. Erro nas demais: ${erro}` : (ok>1 ? `${ok} boletos gerados.` : 'Boleto gerado.'));
+    setTimeout(()=>asaasVer(l.id), 300);
+  };
+}
+function asaasMsg(l){
+  const a = l.asaas||{};
+  return `Olá, ${String(l.paciente||'').split(' ')[0]}! Segue o link para pagamento (${a.tipo==='PIX'?'Pix':'boleto ou Pix'}) referente a ${l.descricao||'seu tratamento'} na ${CLINICA.nome||'clínica'}: ${BRL(l.valor)}, vencimento ${fmtData(a.vencimento||l.vencimento)}.\n${a.link}`;
+}
+function asaasVer(id){
+  const l = S.fin.find(x=>x.id===id); if(!l || !l.asaas) return;
+  const a = l.asaas, pago = l.status==='pago' || ASAAS_PAGO.includes(a.status), aberta = asaasAberta(l);
+  const pac = S.pacientes.find(p=>p.id===l.pacienteId) || {};
+  const tel = digits(pac.telefone); const wa = tel ? (tel.length<=11 ? '55'+tel : tel) : '';
+  const grupo = parcelasDe(l).filter(x=>x.asaas && x.asaas.link && asaasAberta(x));
+  const m = openModal('Cobrança no Asaas', `<p style="margin:0 0 10px;line-height:1.5"><b>${esc(l.paciente||'')}</b> — ${esc(l.descricao||'')}<br><b>${BRL(l.valor)}</b> · vence ${fmtData(a.vencimento||l.vencimento)} · ${esc(ASAAS_TIPO[a.tipo]||'Boleto')}</p>
+    <p style="margin:0 0 12px"><span class="st st-${pago?'pago':finStatus(l)}">${esc(pago?(ASAAS_ST[a.status]||'Pago'):(ASAAS_ST[a.status]||'Aguardando pagamento'))}</span>${l.pagoEm&&pago?` <span class="m" style="font-size:12px;color:var(--muted)">em ${fmtData(l.pagoEm)}</span>`:''}</p>
+    <label class="f full">Link de pagamento<input readonly value="${esc(a.link||'')}" onclick="this.select()"></label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      ${a.link?`<a class="btn" href="${esc(a.link)}" target="_blank" rel="noopener">Abrir página de pagamento</a>`:''}
+      ${a.boleto?`<a class="btn" href="${esc(a.boleto)}" target="_blank" rel="noopener">Boleto em PDF</a>`:''}
+      ${a.link&&!pago?`<button class="btn" data-cobcopiar>Copiar mensagem</button>`:''}
+      ${a.link&&!pago&&wa?`<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(asaasMsg(l))}">Enviar no WhatsApp</a>`:''}
+      ${grupo.length>1&&wa?`<a class="btn" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(`Olá, ${String(l.paciente||'').split(' ')[0]}! Seguem os links das parcelas do seu tratamento na ${CLINICA.nome||'clínica'}:\n`+grupo.map(x=>`• ${x.descricao} — ${BRL(x.valor)}, vence ${fmtData(x.asaas.vencimento||x.vencimento)}: ${x.asaas.link}`).join('\n'))}">Enviar todas as parcelas (${grupo.length})</a>`:''}
+    </div>`,
+    `${aberta?'<button class="btn danger" data-cobcancel>Cancelar boleto</button>':''}<div class="r"><button class="btn" data-cobstatus>Atualizar situação</button><button class="btn" data-close>Fechar</button></div>`);
+  m.querySelector('[data-cobcopiar]')?.addEventListener('click', async()=>{ try{ await navigator.clipboard.writeText(asaasMsg(l)); toast('Mensagem copiada.'); }catch(_){ toast('Não consegui copiar; selecione o link e copie.'); } });
+  m.querySelector('[data-cobstatus]').onclick = async()=>{ await asaasAtualizar(true, [l]); const n=S.fin.find(x=>x.id===id); if(n) asaasVer(id); };
+  m.querySelector('[data-cobcancel]')?.addEventListener('click', async()=>{
+    if(!await confirmBox(`Cancelar o boleto de ${BRL(l.valor)} de ${l.paciente}? O link deixa de funcionar. O lançamento continua no Financeiro como pendente.`, 'Cancelar boleto')) return asaasVer(id);
+    try{ await asaas('cancelar', {id:a.id}); const {asaas:_x, ...resto} = stripId(l); if(await write('adm', COL.fin().doc(l.id), resto)) toast('Boleto cancelado.'); }
+    catch(e){ toast('Não consegui cancelar: '+e.message); }
+  });
+}
+/* Consulta o Asaas e dá baixa automática no que foi pago (no máx. a cada 3 min, ou quando pedido). */
+async function asaasAtualizar(forcar, lista){
+  if(!ASAAS_URL || !S.isAdmin || S.asaasBusy) return;
+  if(!forcar && Date.now() - (S.asaasT||0) < 180000) return;
+  const alvo = (lista || S.fin).filter(l=>l.asaas && l.asaas.id && l.status!=='pago' && !l.asaas.excluida);
+  if(!alvo.length) return;
+  S.asaasBusy = true; S.asaasT = Date.now();
+  try{
+    let pagos = 0;
+    for(let i=0;i<alvo.length;i+=50){
+      const r = await asaas('status', {ids: alvo.slice(i,i+50).map(l=>l.asaas.id)});
+      for(const l of alvo.slice(i,i+50)){
+        const c = r.cobrancas[l.asaas.id]; if(!c || c.erro) continue;
+        const pago = ASAAS_PAGO.includes(c.status);
+        if(c.status===l.asaas.status && !pago && c.link===l.asaas.link) continue;
+        const doc = {...stripId(l), asaas:{...l.asaas, status:c.status, link:c.link||l.asaas.link, boleto:c.boleto||l.asaas.boleto, vencimento:c.vencimento||l.asaas.vencimento, excluida:!!c.excluida}};
+        if(pago){ doc.status='pago'; doc.pagoEm = String(c.pagoEm||todayISO()).slice(0,10); doc.forma = ASAAS_TIPO[c.tipo]||doc.forma; if(c.liquido) doc.asaas.liquido = c.liquido; pagos++; }
+        await write('adm', COL.fin().doc(l.id), doc);
+      }
+    }
+    if(pagos) toast(`${pagos} pagamento(s) confirmado(s) pelo Asaas e baixado(s) no Financeiro.`);
+    else if(forcar) toast('Situação atualizada.');
+  }catch(e){ if(forcar) toast(e.message); }
+  finally{ S.asaasBusy = false; }
 }
 
 /* ============ events ============ */
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-editnota],[data-prontaba],[data-anxfiltro],[data-anxver],[data-anxbaixar],[data-anxdel],[data-termonovo],[data-termover],[data-termodel],[data-termomodelos],[data-agdia],[data-delfin],[data-novatar],[data-tarchk],[data-tared],[data-tarfiltro],[data-recnova],[data-recadd],[data-recrm],[data-recfav],[data-favadd],[data-favdel],[data-recprint],[data-recsave],[data-recprint2],[data-recusar],[data-recopen],[data-recdel],[data-novarec],[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-restproc],[data-restallocultos],[data-resetvrpo],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar]');
+  const el = e.target.closest('[data-editnota],[data-prontaba],[data-anxfiltro],[data-anxver],[data-anxbaixar],[data-anxdel],[data-termonovo],[data-termover],[data-termodel],[data-termomodelos],[data-agdia],[data-delfin],[data-novatar],[data-tarchk],[data-tared],[data-tarfiltro],[data-recnova],[data-recadd],[data-recrm],[data-recfav],[data-favadd],[data-favdel],[data-recprint],[data-recsave],[data-recprint2],[data-recusar],[data-recopen],[data-recdel],[data-novarec],[data-addproc],[data-orcrm],[data-tabedit],[data-reajuste],[data-novoproc],[data-ocultaproc],[data-restauratabela],[data-restproc],[data-restallocultos],[data-resetvrpo],[data-orcprint],[data-orccsv],[data-orccopy],[data-orcsave],[data-orcnovo],[data-orccob],[data-orcopen],[data-orcprint2],[data-orcdel],[data-novoorc],[data-modelos],[data-editmodelo],[data-novomodelo],[data-ocultamodelo],[data-restauramodelo],[data-printnota],[data-novoacesso],[data-editacesso],[data-togacesso],[data-resetacesso],[data-delacesso],[data-act],[data-go],[data-new],[data-ap],[data-agnav],[data-agview],[data-newpac],[data-selpac],[data-editpac],[data-copiar],[data-abrirpront],[data-verportal],[data-dente],[data-marca],[data-delnota],[data-newfin],[data-editfin],[data-pagar],[data-cobgerar],[data-cobver]');
   if(!el) return;
   const d = el.dataset;
   if(d.act==='abrir' || d.act==='entrar') return go(ROUTES[MODO][0]);
@@ -745,6 +876,8 @@ document.addEventListener('click', async e => {
   if(d.newfin!==undefined) return openFin(null, d.pac);
   if(d.editfin) return openFin(d.editfin);
   if(d.pagar) return openPagar(d.pagar);
+  if(d.cobgerar) return asaasGerar(d.cobgerar);
+  if(d.cobver) return asaasVer(d.cobver);
 });
 document.addEventListener('input', e => {
   if(e.target.id==='pacBusca'){ S.pacBusca=e.target.value; render(); }
